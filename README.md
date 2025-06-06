@@ -47,6 +47,31 @@ We introduce **Resolve Me, Quickly**, an AI-powered IT Helpdesk Agent that:
 
 ---
 
+## 🛠️ Core Applications & Initial Models
+
+### 2.3 Core Applications/Services
+
+- **User Interface App**: Slack/Teams bot, Web Portal
+- **NLP Service**: Handles intent detection and response generation
+- **Automation Service**: Executes scripts for IT tasks
+- **Knowledge Base Service**: Stores and retrieves articles/solutions
+- **Integration Service**: Connects with Okta, Active Directory, Jira/ServiceNow
+
+### 2.4 Initial Data Models
+
+- **User**
+  - `user_id`, `name`, `email`, `role`, `department`
+- **Ticket**
+  - `ticket_id`, `user_id`, `issue_type`, `status`, `created_at`, `updated_at`
+- **Solution**
+  - `solution_id`, `ticket_id`, `steps`, `worked`
+- **KnowledgeBaseArticle**
+  - `kb_id`, `title`, `content`, `tags`
+- **AutomationTask**
+  - `task_id`, `command`, `parameters`, `status`, `result`, `executed_at`
+
+---
+
 ## 🔄 Operational Workflows
 
 ### 3.1 Employee Interaction
