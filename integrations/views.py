@@ -15,6 +15,7 @@ import time
 from .models import SlackToken
 import requests
 
+@csrf_exempt
 def slack_oauth_redirect(request):
     """
     Handles the OAuth redirect from Slack.
