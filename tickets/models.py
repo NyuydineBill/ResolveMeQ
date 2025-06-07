@@ -1,5 +1,7 @@
 from django.db import models
 from users.models import User
+import requests
+from django.conf import settings
 
 # Create your models here.
 
@@ -39,6 +41,43 @@ class Ticket(models.Model):
     tags = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    agent_response = models.JSONField(null=True, blank=True, help_text="Response from the AI agent analyzing this ticket")
+    agent_processed = models.BooleanField(default=False, help_text="Whether the AI agent has processed this ticket")
 
     def __str__(self):
         return f"{self.issue_type} ({self.status})"
+
+    def send_to_agent(self):
+        """
+        Sends the ticket to the AI agent for processing.
+        Returns True if successful, False otherwise.
+        """
+        if self.agent_processed:
+            return False
+
+        try:
+            agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/analyze/')
+            payload = {
+                'ticket_id': self.ticket_id,
+                'issue_type': self.issue_type,
+                'description': self.description,
+                'category': self.category,
+                'tags': self.tags,
+                'user': {
+                    'id': self.user.user_id,
+                    'name': self.user.name,
+                    'department': self.user.department
+                }
+            }
+            
+            response = requests.post(agent_url, json=payload)
+            response.raise_for_status()
+            
+            self.agent_response = response.json()
+            self.agent_processed = True
+            self.save()
+            return True
+            
+        except Exception as e:
+            print(f"Error sending ticket {self.ticket_id} to AI agent: {str(e)}")
+            return False
