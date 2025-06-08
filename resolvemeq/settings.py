@@ -158,13 +158,14 @@ SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
 # AI Agent Settings
 AI_AGENT_URL = 'https://agent.resolvemeq.com/analyze/'
 
-# Celery Settings
-CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+# Celery Configuration
+CELERY_BROKER_URL = "rediss://:KODc06flP2BcnwunWKyA5lmr4jcoo4lnMAzCaMOqsR8=@redis-cacheA.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
+CELERY_RESULT_BACKEND = "rediss://:KODc06flP2BcnwunWKyA5lmr4jcoo4lnMAzCaMOqsR8=@redis-cacheA.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Redis Settings
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
