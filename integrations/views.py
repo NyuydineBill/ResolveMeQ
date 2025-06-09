@@ -479,7 +479,7 @@ def slack_interactive_action(request):
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
     """
     Sends a Slack DM to the user with the agent's response and interactive buttons.
-    Formats the agent response for readability.
+    Formats the agent response for readability and prioritizes a main answer if present.
     """
     token_obj = SlackToken.objects.order_by("-created_at").first()
     if token_obj:
@@ -491,12 +491,21 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
         if isinstance(agent_response, dict) and agent_response.get("error"):
             response_text = f":warning: Sorry, the agent could not process your ticket. Reason: {agent_response['error']}"
         elif isinstance(agent_response, dict):
-            # Build a readable summary from agent_response
+            # 1. Try to extract a main answer field
+            main_answer = (
+                agent_response.get("answer") or
+                agent_response.get("response") or
+                agent_response.get("summary") or
+                None
+            )
+            # 2. Build a readable summary from agent_response
             analysis = agent_response.get("analysis", {})
             recommendations = agent_response.get("recommendations", {})
             assignment = agent_response.get("assignment", {})
 
             summary_lines = []
+            if main_answer:
+                summary_lines.append(f"*Answer:*\n{main_answer}")
             if analysis:
                 if analysis.get("suggested_category"):
                     summary_lines.append(f"*Suggested Category:* {analysis['suggested_category']}")
