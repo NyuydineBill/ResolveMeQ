@@ -10,6 +10,7 @@ from celery.exceptions import OperationalError
 from .models import Ticket
 from .tasks import process_ticket_with_agent
 import logging
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
