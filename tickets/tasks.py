@@ -4,10 +4,11 @@ from django.conf import settings
 import requests
 from .models import Ticket
 import logging
+from core.celery import app
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3)
+@app.task(bind=True, max_retries=3)
 def process_ticket_with_agent(self, ticket_id):
     """
     Celery task to process a ticket with the AI agent.

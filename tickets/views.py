@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from celery.result import AsyncResult
+from celery.exceptions import OperationalError
 from .models import Ticket
 from .tasks import process_ticket_with_agent
 import logging
@@ -59,12 +60,20 @@ def process_with_agent(request, ticket_id):
         ticket.save()
     
     # Queue the task
-    task = process_ticket_with_agent.delay(ticket.ticket_id)
+    try:
+        task = process_ticket_with_agent.delay(ticket.ticket_id)
+        logger.info(f"Queued Celery task: {task.id} for ticket {ticket.ticket_id}")
+        task_id = task.id
+        status = 'queued'
+    except OperationalError as e:
+        logger.error(f"Failed to queue Celery task: {e}")
+        task_id = None
+        status = 'celery-broker-unavailable'
     
     return Response({
-        'task_id': task.id,
+        'task_id': task_id,
         'ticket_id': ticket.ticket_id,
-        'status': 'queued',
+        'status': status,
         'agent_processed': ticket.agent_processed
     })
 

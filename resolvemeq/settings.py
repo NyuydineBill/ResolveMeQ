@@ -159,8 +159,8 @@ SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
 AI_AGENT_URL = 'https://agent.resolvemeq.com/analyze/'
 
 # Celery Configuration
-CELERY_BROKER_URL = "rediss://:KODc06flP2BcnwunWKyA5lmr4jcoo4lnMAzCaMOqsR8=@redis-cacheA.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
-CELERY_RESULT_BACKEND = "rediss://:KODc06flP2BcnwunWKyA5lmr4jcoo4lnMAzCaMOqsR8=@redis-cacheA.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
+CELERY_BROKER_URL = "rediss://:bSEDHclfM2KUs4iJGubgw1lt2S8p6mLF7AzCaLnaDRU=@celery-redis-cache.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
+CELERY_RESULT_BACKEND = "rediss://:bSEDHclfM2KUs4iJGubgw1lt2S8p6mLF7AzCaLnaDRU=@celery-redis-cache.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
