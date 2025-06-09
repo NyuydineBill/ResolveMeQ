@@ -69,11 +69,3 @@ def process_ticket_with_agent(self, ticket_id):
     except Exception as e:
         logger.error(f"Unexpected error processing ticket {ticket_id}: {str(e)}")
         return False
-
-    # Example FastAPI call:
-    try:
-        logger.info(f"Sending POST to FastAPI: {fastapi_url} with payload: {payload}")
-        response = requests.post(fastapi_url, json=payload)
-        logger.info(f"Received response from FastAPI: {response.status_code} {response.text}")
-    except Exception as e:
-        logger.error(f"Error sending request to FastAPI: {e}")
