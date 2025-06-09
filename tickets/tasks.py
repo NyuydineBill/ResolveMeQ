@@ -4,15 +4,17 @@ from django.conf import settings
 import requests
 from .models import Ticket
 import logging
+from core.celery import app
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3)
+@app.task(bind=True, max_retries=3)
 def process_ticket_with_agent(self, ticket_id):
     """
     Celery task to process a ticket with the AI agent.
     Includes retry logic and proper error handling.
     """
+    logger.info(f"Celery task started for ticket_id={ticket_id}")
     try:
         ticket = Ticket.objects.get(ticket_id=ticket_id)
         
@@ -63,4 +65,11 @@ def process_ticket_with_agent(self, ticket_id):
 
     except Exception as e:
         logger.error(f"Unexpected error processing ticket {ticket_id}: {str(e)}")
-        return False 
+        return False
+
+    # Example FastAPI call:
+    try:
+        response = requests.post("http://your-fastapi-url/endpoint", json={"ticket_id": ticket_id})
+        logger.info(f"Sent data to FastAPI for ticket_id={ticket_id}, status={response.status_code}, response={response.text}")
+    except Exception as e:
+        logger.error(f"Error sending data to FastAPI for ticket_id={ticket_id}: {e}")
