@@ -38,7 +38,7 @@ def process_ticket_with_agent(self, ticket_id):
         }
 
         # Send to agent
-        agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/analyze/')
+        agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/api/tickets/tickets/analyze/')
         response = requests.post(agent_url, json=payload, timeout=30)
         response.raise_for_status()
 
