@@ -477,8 +477,7 @@ def slack_interactive_action(request):
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
     """
     Sends a Slack DM to the user with the agent's response and interactive buttons.
-    If agent_response contains an error, notifies the user gracefully.
-    Optionally sends as a thread reply if thread_ts is provided.
+    Formats the agent response for readability.
     """
     token_obj = SlackToken.objects.order_by("-created_at").first()
     if token_obj:
@@ -486,55 +485,67 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
             "Authorization": f"Bearer {token_obj.access_token}",
             "Content-Type": "application/json",
         }
-        # Detect error in agent response
+        # Format agent response for Slack
         if isinstance(agent_response, dict) and agent_response.get("error"):
             response_text = f":warning: Sorry, the agent could not process your ticket. Reason: {agent_response['error']}"
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": response_text}
-                },
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Ask Again"},
-                            "value": f"ask_again_{ticket_id}",
-                            "action_id": "ask_again"
-                        }
-                    ]
-                }
-            ]
+        elif isinstance(agent_response, dict):
+            # Build a readable summary from agent_response
+            analysis = agent_response.get("analysis", {})
+            recommendations = agent_response.get("recommendations", {})
+            assignment = agent_response.get("assignment", {})
+
+            summary_lines = []
+            if analysis:
+                if analysis.get("suggested_category"):
+                    summary_lines.append(f"*Suggested Category:* {analysis['suggested_category']}")
+                if analysis.get("suggested_tags"):
+                    summary_lines.append(f"*Suggested Tags:* {', '.join(analysis['suggested_tags'])}")
+                if analysis.get("similar_tickets"):
+                    summary_lines.append(f"*Similar Tickets:* {', '.join(map(str, analysis['similar_tickets']))}")
+            if recommendations:
+                if recommendations.get("immediate_actions"):
+                    summary_lines.append("*Immediate Actions:*\n" + "\n".join(f"• {a}" for a in recommendations["immediate_actions"]))
+                if recommendations.get("resolution_steps"):
+                    summary_lines.append("*Resolution Steps:*\n" + "\n".join(f"• {a}" for a in recommendations["resolution_steps"]))
+                if recommendations.get("preventive_measures"):
+                    summary_lines.append("*Preventive Measures:*\n" + "\n".join(f"• {a}" for a in recommendations["preventive_measures"]))
+            if assignment:
+                if assignment.get("suggested_assignee"):
+                    summary_lines.append(f"*Suggested Assignee:* <@{assignment['suggested_assignee']}> ({assignment.get('team', '')})")
+                if assignment.get("reason"):
+                    summary_lines.append(f"_Reason:_ {assignment['reason']}")
+
+            response_text = "\n".join(summary_lines) if summary_lines else "The agent has processed your ticket. No additional details."
         else:
-            response_text = agent_response.get("message") if isinstance(agent_response, dict) else str(agent_response)
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*🤖 Response for Ticket #{ticket_id}:*\n{response_text}"
-                    }
-                },
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Ask Again"},
-                            "value": f"ask_again_{ticket_id}",
-                            "action_id": "ask_again"
-                        },
-                        {
-                            "type": "button",
-                            "text": {"type": "plain_text", "text": "Mark as Resolved"},
-                            "style": "primary",
-                            "value": f"resolve_{ticket_id}",
-                            "action_id": "resolve_ticket"
-                        }
-                    ]
+            response_text = str(agent_response)
+
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*🤖 Response for Ticket #{ticket_id}:*\n{response_text}"
                 }
-            ]
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Ask Again"},
+                        "value": f"ask_again_{ticket_id}",
+                        "action_id": "ask_again"
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Mark as Resolved"},
+                        "style": "primary",
+                        "value": f"resolve_{ticket_id}",
+                        "action_id": "resolve_ticket"
+                    }
+                ]
+            }
+        ]
         reply_data = {
             "channel": user_id,
             "text": response_text,
