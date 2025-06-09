@@ -33,7 +33,7 @@ def process_ticket_with_agent(self, ticket_id):
             "user": {
                 "id": ticket.user.user_id,
                 "name": ticket.user.name,
-                "department": ticket.user.department
+                "department": ticket.user.department or ""
             }
         }
 
