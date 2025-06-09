@@ -39,7 +39,10 @@ def process_ticket_with_agent(self, ticket_id):
 
         # Send to agent
         agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/api/analyze')
-        response = requests.post(agent_url, json=payload, timeout=30)
+        headers = {"Content-Type": "application/json"}
+        logger.info(f"Sending POST to FastAPI: {agent_url} with payload: {payload}")
+        response = requests.post(agent_url, json=payload, headers=headers, timeout=30)
+        logger.info(f"Received response from FastAPI: {response.status_code} {response.text}")
         response.raise_for_status()
 
         # Update ticket with agent response
