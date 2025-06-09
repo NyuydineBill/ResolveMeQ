@@ -39,7 +39,9 @@ def process_ticket_with_agent(self, ticket_id):
 
         # Send to agent
         agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/api/analyze')
+        logger.info(f"Sending POST to FastAPI: {agent_url} with payload: {payload}")
         response = requests.post(agent_url, json=payload, timeout=30)
+        logger.info(f"Received response from FastAPI: {response.status_code} {response.text}")
         response.raise_for_status()
 
         # Update ticket with agent response
@@ -66,11 +68,3 @@ def process_ticket_with_agent(self, ticket_id):
     except Exception as e:
         logger.error(f"Unexpected error processing ticket {ticket_id}: {str(e)}")
         return False
-
-    # Example FastAPI call:
-    try:
-        logger.info(f"Sending POST to FastAPI: {fastapi_url} with payload: {payload}")
-        response = requests.post(fastapi_url, json=payload)
-        logger.info(f"Received response from FastAPI: {response.status_code} {response.text}")
-    except Exception as e:
-        logger.error(f"Error sending request to FastAPI: {e}")
