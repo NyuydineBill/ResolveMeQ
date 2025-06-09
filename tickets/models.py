@@ -2,6 +2,7 @@ from django.db import models
 from users.models import User
 import requests
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
 

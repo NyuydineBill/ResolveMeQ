@@ -1,5 +1,11 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import KnowledgeBaseArticleViewSet, LLMResponseViewSet
+
+router = DefaultRouter()
+router.register(r'articles', KnowledgeBaseArticleViewSet)
+router.register(r'responses', LLMResponseViewSet)
 
 urlpatterns = [
-    # Add knowledge base-related endpoints here
+    path('', include(router.urls)),
 ]
