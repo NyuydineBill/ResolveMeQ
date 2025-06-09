@@ -23,22 +23,22 @@ def process_ticket_with_agent(self, ticket_id):
             logger.info(f"Ticket {ticket_id} already processed by agent")
             return False
 
-        # Prepare the payload
+        # Prepare the payload as expected by FastAPI
         payload = {
-            'ticket_id': ticket.ticket_id,
-            'issue_type': ticket.issue_type,
-            'description': ticket.description,
-            'category': ticket.category,
-            'tags': ticket.tags,
-            'user': {
-                'id': ticket.user.user_id,
-                'name': ticket.user.name,
-                'department': ticket.user.department
+            "ticket_id": ticket.ticket_id,
+            "issue_type": ticket.issue_type,
+            "description": ticket.description,
+            "category": ticket.category,
+            "tags": ticket.tags,
+            "user": {
+                "id": ticket.user.user_id,
+                "name": ticket.user.name,
+                "department": ticket.user.department
             }
         }
 
         # Send to agent
-        agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/api/tickets/tickets/analyze/')
+        agent_url = getattr(settings, 'AI_AGENT_URL', 'https://agent.resolvemeq.com/api/analyze')
         response = requests.post(agent_url, json=payload, timeout=30)
         response.raise_for_status()
 
