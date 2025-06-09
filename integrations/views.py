@@ -5,7 +5,7 @@ Handles Slack authentication, event verification, ticket creation, notifications
 
 import requests
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import HttpResponse
@@ -113,7 +113,9 @@ def slack_events(request):
             return HttpResponse(status=400)
         # Handle Slack URL verification challenge
         if payload.get("type") == "url_verification":
-            return JsonResponse({"challenge": payload.get("challenge")})
+            response = JsonResponse({"challenge": payload.get("challenge")})
+            response['Content-Type'] = 'application/json; charset=utf-8'
+            return response
 
         event = payload.get("event", {})
         # Respond to app_mention events
@@ -143,8 +145,8 @@ def slack_events(request):
                     "text": "Hello from ResolveMeQ bot! :robot_face:"
                 }
                 requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=reply_data)
-        return HttpResponse(status=200)
-    return HttpResponse(status=405)
+        return HttpResponse(status=200, content_type='text/plain; charset=utf-8')
+    return HttpResponse(status=405, content_type='text/plain; charset=utf-8')
 
 def notify_user_ticket_created(user_id, ticket_id):
     """
