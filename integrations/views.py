@@ -390,9 +390,157 @@ def slack_interactive_action(request):
         if not verify_slack_request(request):
             return HttpResponse(status=403)
         payload = json.loads(request.POST.get("payload", "{}"))
-        # Handle different types of interactive actions here
-        return HttpResponse(status=200)
-
-
-
+        actions = payload.get("actions", [])
+        user_id = payload.get("user", {}).get("id")
+        response_url = payload.get("response_url")
+        # Only handle button actions
+        if actions:
+            action = actions[0]
+            action_id = action.get("action_id")
+            value = action.get("value", "")
+            # Handle "Ask Again"
+            if action_id == "ask_again" and value.startswith("ask_again_"):
+                ticket_id = value.replace("ask_again_", "")
+                from tickets.tasks import process_ticket_with_agent
+                process_ticket_with_agent.delay(ticket_id)
+                requests.post(response_url, json={
+                    "replace_original": False,
+                    "text": f"🔄 Ticket #{ticket_id} is being reprocessed by the agent."
+                })
+                return HttpResponse()
+            # Handle "Mark as Resolved"
+            elif action_id == "resolve_ticket" and value.startswith("resolve_"):
+                ticket_id = value.replace("resolve_", "")
+                from tickets.models import Ticket
+                try:
+                    ticket = Ticket.objects.get(ticket_id=ticket_id)
+                    ticket.status = "resolved"
+                    ticket.save()
+                    notify_user_ticket_resolved(user_id, ticket_id)
+                    # Prompt for feedback
+                    token_obj = SlackToken.objects.order_by("-created_at").first()
+                    if token_obj:
+                        headers = {
+                            "Authorization": f"Bearer {token_obj.access_token}",
+                            "Content-Type": "application/json",
+                        }
+                        feedback_blocks = [
+                            {
+                                "type": "section",
+                                "text": {"type": "mrkdwn", "text": f"How helpful was the agent's response for Ticket #{ticket_id}?"}
+                        },
+                        {
+                            "type": "actions",
+                            "elements": [
+                                {
+                                    "type": "button",
+                                    "text": {"type": "plain_text", "text": "👍 Helpful"},
+                                    "value": f"feedback_positive_{ticket_id}",
+                                    "action_id": "feedback_positive"
+                                },
+                                {
+                                    "type": "button",
+                                    "text": {"type": "plain_text", "text": "👎 Not Helpful"},
+                                    "value": f"feedback_negative_{ticket_id}",
+                                    "action_id": "feedback_negative"
+                                }
+                            ]
+                        }
+                    ]
+                        requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                            "channel": user_id,
+                            "blocks": feedback_blocks,
+                            "text": "Please rate the agent's response."
+                        })
+                    requests.post(response_url, json={
+                        "replace_original": False,
+                        "text": f"✅ Ticket #{ticket_id} marked as resolved."
+                    })
+                except Ticket.DoesNotExist:
+                    requests.post(response_url, json={
+                        "replace_original": False,
+                        "text": f"❌ Ticket #{ticket_id} not found."
+                    })
+                return HttpResponse()
+            # Handle feedback buttons
+            elif action_id in ("feedback_positive", "feedback_negative"):
+                feedback = "helpful" if action_id == "feedback_positive" else "not helpful"
+                ticket_id = value.split("_")[-1]
+                # Here you could store feedback in DB if desired
+                requests.post(response_url, json={
+                    "replace_original": False,
+                    "text": f"Thank you for your feedback on Ticket #{ticket_id}: *{feedback}*."
+                })
+                return HttpResponse()
     return HttpResponse(status=405)
+
+def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
+    """
+    Sends a Slack DM to the user with the agent's response and interactive buttons.
+    If agent_response contains an error, notifies the user gracefully.
+    Optionally sends as a thread reply if thread_ts is provided.
+    """
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if token_obj:
+        headers = {
+            "Authorization": f"Bearer {token_obj.access_token}",
+            "Content-Type": "application/json",
+        }
+        # Detect error in agent response
+        if isinstance(agent_response, dict) and agent_response.get("error"):
+            response_text = f":warning: Sorry, the agent could not process your ticket. Reason: {agent_response['error']}"
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": response_text}
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Ask Again"},
+                            "value": f"ask_again_{ticket_id}",
+                            "action_id": "ask_again"
+                        }
+                    ]
+                }
+            ]
+        else:
+            response_text = agent_response.get("message") if isinstance(agent_response, dict) else str(agent_response)
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*🤖 Response for Ticket #{ticket_id}:*\n{response_text}"
+                    }
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Ask Again"},
+                            "value": f"ask_again_{ticket_id}",
+                            "action_id": "ask_again"
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "Mark as Resolved"},
+                            "style": "primary",
+                            "value": f"resolve_{ticket_id}",
+                            "action_id": "resolve_ticket"
+                        }
+                    ]
+                }
+            ]
+        reply_data = {
+            "channel": user_id,
+            "text": response_text,
+            "blocks": blocks
+        }
+        if thread_ts:
+            reply_data["thread_ts"] = thread_ts
+        resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=reply_data)
+        print("Slack agent response notification:", resp.text)
