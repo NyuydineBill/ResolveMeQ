@@ -10,7 +10,7 @@ from integrations.views import notify_user_agent_response
 logger = logging.getLogger(__name__)
 
 @app.task(bind=True, max_retries=3)
-def process_ticket_with_agent(self, ticket_id):
+def process_ticket_with_agent(self, ticket_id, thread_ts=None):
     """
     Celery task to process a ticket with the AI agent.
     Includes retry logic and proper error handling.
@@ -51,8 +51,8 @@ def process_ticket_with_agent(self, ticket_id):
         ticket.agent_processed = True
         ticket.save()
 
-        # Notify user via Slack with agent response
-        notify_user_agent_response(ticket.user.user_id, ticket.ticket_id, ticket.agent_response)
+        # Notify user via Slack with agent response (threaded)
+        notify_user_agent_response(ticket.user.user_id, ticket.ticket_id, ticket.agent_response, thread_ts=thread_ts)
 
         logger.info(f"Successfully processed ticket {ticket_id} with agent")
         return True

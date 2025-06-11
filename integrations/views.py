@@ -340,17 +340,35 @@ def slack_slash_command(request):
 def slack_modal_submission(request):
     """
     Handles modal submissions from Slack and creates a ticket in the backend.
-
-    Methods:
-        POST: Processes modal submission.
-
-    Returns:
-        JsonResponse: Slack expects a response_action.
+    Also handles clarification modals for missing info.
     """
     if request.method == "POST":
         if not verify_slack_request(request):
             return HttpResponse(status=403)
         payload = json.loads(request.POST.get("payload", "{}"))
+        # Handle clarification modal
+        if payload.get("type") == "view_submission" and payload.get("view", {}).get("callback_id") == "clarify_modal":
+            values = payload["view"]["state"]["values"]
+            description = values["description_block"]["description"]["value"]
+            issue_type = values["issue_type_block"]["issue_type"]["value"]
+            user_id = payload["user"]["id"]
+            from tickets.models import Ticket, TicketInteraction
+            ticket = Ticket.objects.filter(user__user_id=user_id, status__in=["new", "in-progress"]).order_by("-created_at").first()
+            if ticket:
+                ticket.description = description
+                ticket.issue_type = issue_type
+                ticket.save()
+                # Log clarification interaction
+                TicketInteraction.objects.create(
+                    ticket=ticket,
+                    user=ticket.user,
+                    interaction_type="clarification",
+                    content=f"User clarified: Description='{description}', Issue Type='{issue_type}'"
+                )
+                # Optionally, reprocess with agent
+                from tickets.tasks import process_ticket_with_agent
+                process_ticket_with_agent.delay(ticket.ticket_id)
+            return JsonResponse({"response_action": "clear"})
         if payload.get("type") == "view_submission" and payload.get("view", {}).get("callback_id") == "resolvemeq_modal":
             values = payload["view"]["state"]["values"]
             category = values["category_block"]["category"]["selected_option"]["value"]
@@ -359,8 +377,7 @@ def slack_modal_submission(request):
             description = values["description_block"]["description"]["value"]
             screenshot = values.get("screenshot_block", {}).get("screenshot", {}).get("value", "")
             user_id = payload["user"]["id"]
-            # Save to your Ticket model (example)
-            from tickets.models import Ticket
+            from tickets.models import Ticket, TicketInteraction
             from users.models import User
             user, _ = User.objects.get_or_create(user_id=user_id, defaults={"name": user_id})
             ticket = Ticket.objects.create(
@@ -371,8 +388,14 @@ def slack_modal_submission(request):
                 screenshot=screenshot,
                 category=category,
             )
+            # Log ticket creation as an interaction
+            TicketInteraction.objects.create(
+                ticket=ticket,
+                user=user,
+                interaction_type="user_message",
+                content=f"Ticket created: {description}"
+            )
             notify_user_ticket_created(user_id, ticket.ticket_id)
-            # Respond to Slack (modal closes automatically)
             return JsonResponse({"response_action": "clear"})
         return JsonResponse({}, status=200)
     return HttpResponse(status=405)
@@ -395,6 +418,7 @@ def slack_interactive_action(request):
         actions = payload.get("actions", [])
         user_id = payload.get("user", {}).get("id")
         response_url = payload.get("response_url")
+        thread_ts = payload.get("message", {}).get("ts")  # Get thread timestamp if present
         # Only handle button actions
         if actions:
             action = actions[0]
@@ -404,7 +428,24 @@ def slack_interactive_action(request):
             if action_id == "ask_again" and value.startswith("ask_again_"):
                 ticket_id = value.replace("ask_again_", "")
                 from tickets.tasks import process_ticket_with_agent
-                process_ticket_with_agent.delay(ticket_id)
+                # Post progress update in thread
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    progress_msg = {
+                        "channel": user_id,
+                        "text": f"🔄 Working on Ticket #{ticket_id}...",
+                        "thread_ts": thread_ts or None
+                    }
+                    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=progress_msg)
+                    if resp.ok:
+                        progress_data = resp.json()
+                        thread_ts = progress_data.get("ts", thread_ts)
+                # Pass thread_ts to Celery task
+                process_ticket_with_agent.delay(ticket_id, thread_ts)
                 requests.post(response_url, json={
                     "replace_original": False,
                     "text": f"🔄 Ticket #{ticket_id} is being reprocessed by the agent."
@@ -468,10 +509,75 @@ def slack_interactive_action(request):
             elif action_id in ("feedback_positive", "feedback_negative"):
                 feedback = "helpful" if action_id == "feedback_positive" else "not helpful"
                 ticket_id = value.split("_")[-1]
-                # Here you could store feedback in DB if desired
+                # Log feedback as TicketInteraction
+                from tickets.models import Ticket, TicketInteraction
+                try:
+                    ticket = Ticket.objects.get(ticket_id=ticket_id)
+                    TicketInteraction.objects.create(
+                        ticket=ticket,
+                        user=ticket.user,
+                        interaction_type="feedback",
+                        content=f"User marked agent response as: {feedback}"
+                    )
+                    # Sync to knowledge base if resolved and has agent response
+                    ticket.sync_to_knowledge_base()
+                except Exception:
+                    pass
                 requests.post(response_url, json={
                     "replace_original": False,
                     "text": f"Thank you for your feedback on Ticket #{ticket_id}: *{feedback}*."
+                })
+                return HttpResponse()
+            # Handle clarification prompt
+            elif action_id == "clarify_ticket" and value.startswith("clarify_"):
+                ticket_id = value.replace("clarify_", "")
+                # Open a modal for the user to provide more info
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    modal_view = {
+                        "type": "modal",
+                        "callback_id": "clarify_modal",
+                        "title": {"type": "plain_text", "text": "Provide More Info"},
+                        "submit": {"type": "plain_text", "text": "Submit"},
+                        "close": {"type": "plain_text", "text": "Cancel"},
+                        "blocks": [
+                            {
+                                "type": "input",
+                                "block_id": "description_block",
+                                "element": {
+                                    "type": "plain_text_input",
+                                    "action_id": "description",
+                                    "multiline": True,
+                                },
+                                "label": {"type": "plain_text", "text": "Description (required)"},
+                            },
+                            {
+                                "type": "input",
+                                "block_id": "issue_type_block",
+                                "element": {
+                                    "type": "plain_text_input",
+                                    "action_id": "issue_type",
+                                },
+                                "label": {"type": "plain_text", "text": "Issue Type (required)"},
+                            },
+                        ],
+                    }
+                    trigger_id = payload.get("trigger_id")
+                    data = {
+                        "trigger_id": trigger_id,
+                        "view": modal_view,
+                    }
+                    requests.post("https://slack.com/api/views.open", headers=headers, json=data)
+                return HttpResponse()
+            elif action_id == "cancel_ticket" and value.startswith("cancel_"):
+                ticket_id = value.replace("cancel_", "")
+                requests.post(response_url, json={
+                    "replace_original": False,
+                    "text": f"❌ Ticket #{ticket_id} update cancelled."
                 })
                 return HttpResponse()
     return HttpResponse(status=405)
@@ -487,82 +593,95 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
             "Authorization": f"Bearer {token_obj.access_token}",
             "Content-Type": "application/json",
         }
-        # Format agent response for Slack
-        if isinstance(agent_response, dict) and agent_response.get("error"):
-            response_text = f":warning: Sorry, the agent could not process your ticket. Reason: {agent_response['error']}"
-        elif isinstance(agent_response, dict):
-            # 1. Try to extract a main answer field
-            main_answer = (
-                agent_response.get("answer") or
-                agent_response.get("response") or
-                agent_response.get("summary") or
-                None
+        # Log agent response as TicketInteraction
+        from tickets.models import Ticket, TicketInteraction
+        try:
+            ticket = Ticket.objects.get(ticket_id=ticket_id)
+            # Log agent response as TicketInteraction
+            TicketInteraction.objects.create(
+                ticket=ticket,
+                user=ticket.user,  # or a system/bot user if you have one
+                interaction_type="agent_response",
+                content=str(agent_response)
             )
-            # 2. Build a readable summary from agent_response
-            analysis = agent_response.get("analysis", {})
-            recommendations = agent_response.get("recommendations", {})
-            assignment = agent_response.get("assignment", {})
+        except Exception:
+            pass
+    # Format agent response for Slack
+    if isinstance(agent_response, dict) and agent_response.get("error"):
+        response_text = f":warning: Sorry, the agent could not process your ticket. Reason: {agent_response['error']}"
+    elif isinstance(agent_response, dict):
+        # 1. Try to extract a main answer field
+        main_answer = (
+            agent_response.get("answer") or
+            agent_response.get("response") or
+            agent_response.get("summary") or
+            None
+        )
+        # 2. Build a readable summary from agent_response
+        analysis = agent_response.get("analysis", {})
+        recommendations = agent_response.get("recommendations", {})
+        assignment = agent_response.get("assignment", {})
 
-            summary_lines = []
-            if main_answer:
-                summary_lines.append(f"*Answer:*\n{main_answer}")
-            if analysis:
-                if analysis.get("suggested_category"):
-                    summary_lines.append(f"*Suggested Category:* {analysis['suggested_category']}")
-                if analysis.get("suggested_tags"):
-                    summary_lines.append(f"*Suggested Tags:* {', '.join(analysis['suggested_tags'])}")
-                if analysis.get("similar_tickets"):
-                    summary_lines.append(f"*Similar Tickets:* {', '.join(map(str, analysis['similar_tickets']))}")
-            if recommendations:
-                if recommendations.get("immediate_actions"):
-                    summary_lines.append("*Immediate Actions:*\n" + "\n".join(f"• {a}" for a in recommendations["immediate_actions"]))
-                if recommendations.get("resolution_steps"):
-                    summary_lines.append("*Resolution Steps:*\n" + "\n".join(f"• {a}" for a in recommendations["resolution_steps"]))
-                if recommendations.get("preventive_measures"):
-                    summary_lines.append("*Preventive Measures:*\n" + "\n".join(f"• {a}" for a in recommendations["preventive_measures"]))
-            if assignment:
-                if assignment.get("suggested_assignee"):
-                    summary_lines.append(f"*Suggested Assignee:* <@{assignment['suggested_assignee']}> ({assignment.get('team', '')})")
-                if assignment.get("reason"):
-                    summary_lines.append(f"_Reason:_ {assignment['reason']}")
+        summary_lines = []
+        if main_answer:
+            summary_lines.append(f"*Answer:*\n{main_answer}")
+        if analysis:
+            if analysis.get("suggested_category"):
+                summary_lines.append(f"*Suggested Category:* {analysis['suggested_category']}")
+            if analysis.get("suggested_tags"):
+                summary_lines.append(f"*Suggested Tags:* {', '.join(analysis['suggested_tags'])}")
+            if analysis.get("similar_tickets"):
+                summary_lines.append(f"*Similar Tickets:* {', '.join(map(str, analysis['similar_tickets']))}")
+        if recommendations:
+            if recommendations.get("immediate_actions"):
+                summary_lines.append("*Immediate Actions:*\n" + "\n".join(f"• {a}" for a in recommendations["immediate_actions"]))
+            if recommendations.get("resolution_steps"):
+                summary_lines.append("*Resolution Steps:*\n" + "\n".join(f"• {a}" for a in recommendations["resolution_steps"]))
+            if recommendations.get("preventive_measures"):
+                summary_lines.append("*Preventive Measures:*\n" + "\n".join(f"• {a}" for a in recommendations["preventive_measures"]))
+        if assignment:
+            if assignment.get("suggested_assignee"):
+                summary_lines.append(f"*Suggested Assignee:* <@{assignment['suggested_assignee']}> ({assignment.get('team', '')})")
+            if assignment.get("reason"):
+                summary_lines.append(f"_Reason:_ {assignment['reason']}")
 
-            response_text = "\n".join(summary_lines) if summary_lines else "The agent has processed your ticket. No additional details."
-        else:
-            response_text = str(agent_response)
+        response_text = "\n".join(summary_lines) if summary_lines else "The agent has processed your ticket. No additional details."
+    else:
+        response_text = str(agent_response)
 
-        blocks = [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*🤖 Response for Ticket #{ticket_id}:*\n{response_text}"
-                }
-            },
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Ask Again"},
-                        "value": f"ask_again_{ticket_id}",
-                        "action_id": "ask_again"
-                    },
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "Mark as Resolved"},
-                        "style": "primary",
-                        "value": f"resolve_{ticket_id}",
-                        "action_id": "resolve_ticket"
-                    }
-                ]
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*🤖 Response for Ticket #{ticket_id}:*\n{response_text}"
             }
-        ]
-        reply_data = {
-            "channel": user_id,
-            "text": response_text,
-            "blocks": blocks
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Ask Again"},
+                    "value": f"ask_again_{ticket_id}",
+                    "action_id": "ask_again"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Mark as Resolved"},
+                    "style": "primary",
+                    "value": f"resolve_{ticket_id}",
+                    "action_id": "resolve_ticket"
+                }
+            ]
         }
-        if thread_ts:
-            reply_data["thread_ts"] = thread_ts
-        resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=reply_data)
-        print("Slack agent response notification:", resp.text)
+    ]
+    reply_data = {
+        "channel": user_id,
+        "text": response_text,
+        "blocks": blocks
+    }
+    if thread_ts:
+        reply_data["thread_ts"] = thread_ts
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=reply_data)
+    print("Slack agent response notification:", resp.text)

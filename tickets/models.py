@@ -82,3 +82,56 @@ class Ticket(models.Model):
         except Exception as e:
             print(f"Error sending ticket {self.ticket_id} to AI agent: {str(e)}")
             return False
+
+    def sync_to_knowledge_base(self):
+        """
+        Create or update a KnowledgeBaseArticle from this ticket if it is resolved and has agent_response.
+        This method will:
+        - Create a new KnowledgeBaseArticle if one does not exist for this ticket's issue_type.
+        - Update the article if it already exists, keeping the latest description and agent response.
+        - Use the ticket's category and tags for article tagging.
+        - This enables automatic enrichment of the knowledge base from real ticket resolutions.
+        """
+        if self.status == "resolved" and self.agent_response:
+            from knowledge_base.models import KnowledgeBaseArticle
+            title = f"Resolved: {self.issue_type}"
+            content = f"Description: {self.description}\n\nAgent Response: {self.agent_response}"
+            tags = [self.category] + (self.tags if self.tags else [])
+            # Try to find an existing article for this ticket
+            article, created = KnowledgeBaseArticle.objects.get_or_create(
+                title=title,
+                defaults={
+                    "content": content,
+                    "tags": tags,
+                }
+            )
+            if not created:
+                article.content = content
+                article.tags = tags
+                article.save()
+
+class TicketInteraction(models.Model):
+    """
+    Tracks all user and agent interactions related to a ticket for analytics and knowledge base enrichment.
+    Types include:
+    - clarification: User provides more info or clarification via Slack modal.
+    - feedback: User rates the agent's response (helpful/not helpful).
+    - agent_response: The AI agent's response to the ticket is logged.
+    - user_message: Ticket creation or user-initiated messages.
+    This model enables auditing, analytics, and future knowledge extraction from real support conversations.
+    """
+    INTERACTION_TYPES = [
+        ("clarification", "Clarification"),
+        ("feedback", "Feedback"),
+        ("agent_response", "Agent Response"),
+        ("user_message", "User Message"),
+    ]
+    id = models.AutoField(primary_key=True)
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    interaction_type = models.CharField(max_length=50, choices=INTERACTION_TYPES)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.interaction_type} for Ticket {self.ticket.ticket_id} by {self.user.user_id}"

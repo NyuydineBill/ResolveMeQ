@@ -18,14 +18,18 @@ ResolveMeQ is a modular Django-based IT support and automation platform with Sla
 
 ### 2. **tickets**
 - **Model:** `Ticket`
-  - `ticket_id`, `user`, `assigned_to`, `issue_type`, `status`, `description`, `screenshot`, `category`, `tags`, `created_at`, `updated_at`
+  - `ticket_id`, `user`, `assigned_to`, `issue_type`, `status`, `description`, `screenshot`, `category`, `tags`, `created_at`, `updated_at`, `agent_response`, `agent_processed`
+- **Model:** `TicketInteraction`
+  - `id`, `ticket`, `user`, `interaction_type`, `content`, `created_at`
 - **Features:**
   - Ticket creation via Slack modal (`/resolvemeq`)
+  - Tracks all user and agent interactions (clarification, feedback, agent response, user message) for analytics and knowledge enrichment
   - Service categories (Wi-Fi, Laptop, VPN, etc.)
   - Tags for flexible triaging
   - Assignment to IT staff
   - CSV export, Slack notifications, escalation logic
   - Analytics endpoint (`/api/tickets/analytics/`)
+  - **Automatic knowledge base enrichment:** Resolved tickets with agent responses are synced to the knowledge base as articles
 - **Admin:** Assign, resolve, respond via Slack, export tickets
 
 ---
@@ -39,8 +43,10 @@ ResolveMeQ is a modular Django-based IT support and automation platform with Sla
 
 ### 4. **knowledge_base**
 - **Model:** `KnowledgeBaseArticle`
-  - `kb_id`, `title`, `content`, `tags`
-- **Purpose:** Internal knowledge base for IT and users.
+  - `kb_id`, `title`, `content`, `tags`, `created_at`, `updated_at`, `views`, `helpful_votes`, `total_votes`
+- **Features:**
+  - Internal knowledge base for IT and users
+  - **Auto-enrichment:** New articles are created/updated from resolved tickets and agent responses
 
 ---
 
@@ -104,6 +110,14 @@ ResolveMeQ is a modular Django-based IT support and automation platform with Sla
 - Django backend with modular apps
 - Slack bot integration for real-time IT support
 - REST API for frontend or external integrations
+
+---
+
+## How Knowledge Enrichment Works
+
+- Every ticket and user/agent interaction (clarification, feedback, agent response) is logged as a `TicketInteraction`.
+- When a ticket is resolved and has an agent response, it is automatically added to the knowledge base as a new article (or updates an existing one).
+- This enables the AI agent and IT team to learn from real support conversations and resolutions, improving future answers and automation.
 
 ---
 
