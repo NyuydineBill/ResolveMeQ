@@ -156,7 +156,7 @@ SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
 SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")
 
 # AI Agent Settings
-AI_AGENT_URL = 'https://agent.resolvemeq.com/api/tickets/tickets/analyze/'
+AI_AGENT_URL = 'https://agent.resolvemeq.com/api/tickets/analyze/'
 
 # Celery Configuration
 CELERY_BROKER_URL = "rediss://:bSEDHclfM2KUs4iJGubgw1lt2S8p6mLF7AzCaLnaDRU=@celery-redis-cache.redis.cache.windows.net:6380/0?ssl_cert_reqs=CERT_NONE"
