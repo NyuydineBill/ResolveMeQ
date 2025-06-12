@@ -427,6 +427,9 @@ class SlackInteractiveActionView(View):
     """
     def post(self, request, *args, **kwargs):
         if not verify_slack_request(request):
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Slack interactive POST forbidden: signature verification failed. Headers: %s, Body: %s", dict(request.headers), request.body)
             return HttpResponse(status=403)
         payload = json.loads(request.POST.get("payload", "{}"))
         actions = payload.get("actions", [])
