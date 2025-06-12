@@ -742,3 +742,52 @@ class SlackInteractiveActionView(View):
             return JsonResponse({}, status=200)
         # Always return 200 OK for unknown or unhandled payloads
         return HttpResponse(status=200)
+
+def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
+    """
+    Sends the agent's analysis and recommendations to the user via Slack DM.
+    Args:
+        user_id (str): Slack user ID.
+        ticket_id (int): Ticket ID.
+        agent_response (dict): The response from the agent (should be a dict, not JSON string).
+        thread_ts (str, optional): Slack thread timestamp to reply in thread.
+    """
+    from .models import SlackToken
+    import requests
+    import json
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if not token_obj:
+        return
+    headers = {
+        "Authorization": f"Bearer {token_obj.access_token}",
+        "Content-Type": "application/json",
+    }
+    # Format the agent response for Slack
+    if isinstance(agent_response, str):
+        try:
+            agent_response = json.loads(agent_response)
+        except Exception:
+            agent_response = {"analysis": {}, "recommendations": {}}
+    analysis = agent_response.get("analysis", {})
+    recommendations = agent_response.get("recommendations", {})
+    text_lines = [f"🤖 *Agent Analysis for Ticket #{ticket_id}*:"]
+    if analysis:
+        for k, v in analysis.items():
+            text_lines.append(f"*{k.replace('_',' ').capitalize()}:* {v}")
+    if recommendations:
+        text_lines.append("\n*Recommendations:*")
+        for k, v in recommendations.items():
+            if isinstance(v, list):
+                text_lines.append(f"*{k.replace('_',' ').capitalize()}:*\n- " + "\n- ".join(v))
+            else:
+                text_lines.append(f"*{k.replace('_',' ').capitalize()}:* {v}")
+    text = "\n".join(text_lines)
+    payload = {
+        "channel": user_id,
+        "text": text,
+    }
+    if thread_ts:
+        payload["thread_ts"] = thread_ts
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    import logging
+    logging.getLogger(__name__).info(f"Sent agent response to Slack: {resp.text}")

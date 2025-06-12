@@ -5,6 +5,7 @@ import requests
 from .models import Ticket
 import logging
 from core.celery import app
+from integrations.views import notify_user_agent_response  # Restored import for Slack feedback
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def process_ticket_with_agent(self, ticket_id, thread_ts=None):
         logger.info(f"Successfully processed ticket {ticket_id} with agent")
         
         # Notify user via Slack with agent response (threaded)
-        # notify_user_agent_response(ticket.user.user_id, ticket.ticket_id, ticket.agent_response, thread_ts=thread_ts)
+        notify_user_agent_response(ticket.user.user_id, ticket.ticket_id, ticket.agent_response, thread_ts=thread_ts)
 
         return True
 
