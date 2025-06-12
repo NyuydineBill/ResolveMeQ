@@ -662,7 +662,8 @@ class SlackInteractiveActionView(View):
                     }
                     requests.post("https://slack.com/api/views.open", headers=headers, json=data)
                 return HttpResponse()
-        return HttpResponse(status=405)
+        # Always return a 200 OK if no actions matched
+        return HttpResponse("No action taken", status=200)
 
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
     """
