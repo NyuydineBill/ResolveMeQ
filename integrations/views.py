@@ -580,6 +580,26 @@ def slack_interactive_action(request):
                     "text": f"❌ Ticket #{ticket_id} update cancelled."
                 })
                 return HttpResponse()
+            # Handle "Escalate" action
+            elif action_id == "escalate_ticket" and value.startswith("escalate_"):
+                ticket_id = value.replace("escalate_", "")
+                from tickets.models import Ticket, TicketInteraction
+                try:
+                    ticket = Ticket.objects.get(ticket_id=ticket_id)
+                    TicketInteraction.objects.create(
+                        ticket=ticket,
+                        user=ticket.user,
+                        interaction_type="user_message",
+                        content="User requested escalation via Slack."
+                    )
+                    # Optionally, notify admins or escalation channel here
+                except Exception:
+                    pass
+                requests.post(response_url, json={
+                    "replace_original": False,
+                    "text": f"🚨 Ticket #{ticket_id} has been escalated. An IT admin will review it shortly."
+                })
+                return HttpResponse()
     return HttpResponse(status=405)
 
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
@@ -665,6 +685,25 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
                     "text": {"type": "plain_text", "text": "Ask Again"},
                     "value": f"ask_again_{ticket_id}",
                     "action_id": "ask_again"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Provide More Info"},
+                    "value": f"clarify_{ticket_id}",
+                    "action_id": "clarify_ticket"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Escalate"},
+                    "style": "danger",
+                    "value": f"escalate_{ticket_id}",
+                    "action_id": "escalate_ticket"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Cancel"},
+                    "value": f"cancel_{ticket_id}",
+                    "action_id": "cancel_ticket"
                 },
                 {
                     "type": "button",

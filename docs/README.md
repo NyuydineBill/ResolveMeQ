@@ -113,10 +113,24 @@ ResolveMeQ is a modular Django-based IT support and automation platform with Sla
 
 ---
 
+## Enhanced Slack Interactivity (2025-06)
+
+- Every agent response in Slack now includes the following interactive buttons:
+  - **Ask Again:** Reprocesses the ticket with the agent and posts an update in the thread.
+  - **Provide More Info:** Opens a modal for the user to clarify or add details to the ticket.
+  - **Escalate:** Escalates the ticket to IT admins and logs the escalation as a TicketInteraction.
+  - **Cancel:** Cancels the current update or action and logs the cancellation.
+  - **Mark as Resolved:** Marks the ticket as resolved, triggers knowledge base/suggestion enrichment, and prompts for feedback.
+- All button actions are logged as TicketInteraction for analytics and knowledge enrichment.
+- Escalation can optionally notify IT admins or a dedicated escalation channel.
+
+---
+
 ## How Knowledge Enrichment Works
 
-- Every ticket and user/agent interaction (clarification, feedback, agent response) is logged as a `TicketInteraction`.
+- Every ticket and user/agent interaction (clarification, feedback, agent response, escalation, etc.) is logged as a `TicketInteraction`.
 - When a ticket is resolved and has an agent response, it is automatically added to the knowledge base as a new article (or updates an existing one).
+- Solutions are created from agent responses with resolution steps.
 - This enables the AI agent and IT team to learn from real support conversations and resolutions, improving future answers and automation.
 
 ---

@@ -110,6 +110,33 @@ class Ticket(models.Model):
                 article.tags = tags
                 article.save()
 
+    def save(self, *args, **kwargs):
+        # If ticket is being marked as resolved and has agent_response, sync to KB and create Solution
+        was_resolved = False
+        if self.pk:
+            orig = Ticket.objects.get(pk=self.pk)
+            was_resolved = orig.status == "resolved"
+        super().save(*args, **kwargs)
+        if self.status == "resolved" and self.agent_response and not was_resolved:
+            self.sync_to_knowledge_base()
+            # Create Solution if agent_response has steps
+            from solutions.models import Solution
+            steps = None
+            if isinstance(self.agent_response, dict):
+                # Try to extract steps from agent_response
+                steps = self.agent_response.get("resolution_steps") or self.agent_response.get("steps")
+                if steps and isinstance(steps, list):
+                    steps = "\n".join(steps)
+            if steps:
+                Solution.objects.get_or_create(
+                    ticket=self,
+                    defaults={
+                        "steps": steps,
+                        "worked": True,
+                        "created_by": self.user,
+                    }
+                )
+
 class TicketInteraction(models.Model):
     """
     Tracks all user and agent interactions related to a ticket for analytics and knowledge base enrichment.
