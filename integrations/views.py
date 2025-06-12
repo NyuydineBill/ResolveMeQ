@@ -356,7 +356,20 @@ def slack_modal_submission(request):
             user_id = payload["user"]["id"]
             from tickets.models import Ticket, TicketInteraction
             ticket = Ticket.objects.filter(user__user_id=user_id, status__in=["new", "in-progress"]).order_by("-created_at").first()
-            if ticket:
+            if not ticket:
+                # Notify user in Slack if ticket not found
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                        "channel": user_id,
+                        "text": "Sorry, we couldn't find your ticket to clarify. Please try again or contact IT."
+                    })
+                return JsonResponse({"response_action": "clear"})
+            try:
                 ticket.description = description
                 ticket.issue_type = issue_type
                 ticket.save()
@@ -370,6 +383,18 @@ def slack_modal_submission(request):
                 # Optionally, reprocess with agent
                 from tickets.tasks import process_ticket_with_agent
                 process_ticket_with_agent.delay(ticket.ticket_id)
+            except Exception as e:
+                # Notify user in Slack if clarification fails
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                        "channel": user_id,
+                        "text": f"Sorry, there was an error saving your clarification: {str(e)}"
+                    })
             return JsonResponse({"response_action": "clear"})
         if payload.get("type") == "view_submission" and payload.get("view", {}).get("callback_id") == "resolvemeq_modal":
             values = payload["view"]["state"]["values"]
@@ -724,7 +749,20 @@ class SlackInteractiveActionView(View):
                 user_id = payload["user"]["id"]
                 from tickets.models import Ticket, TicketInteraction
                 ticket = Ticket.objects.filter(user__user_id=user_id, status__in=["new", "in-progress"]).order_by("-created_at").first()
-                if ticket:
+                if not ticket:
+                    # Notify user in Slack if ticket not found
+                    token_obj = SlackToken.objects.order_by("-created_at").first()
+                    if token_obj:
+                        headers = {
+                            "Authorization": f"Bearer {token_obj.access_token}",
+                            "Content-Type": "application/json",
+                        }
+                        requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                            "channel": user_id,
+                            "text": "Sorry, we couldn't find your ticket to clarify. Please try again or contact IT."
+                        })
+                    return JsonResponse({"response_action": "clear"})
+                try:
                     ticket.description = description
                     ticket.issue_type = issue_type
                     ticket.save()
@@ -736,6 +774,18 @@ class SlackInteractiveActionView(View):
                     )
                     from tickets.tasks import process_ticket_with_agent
                     process_ticket_with_agent.delay(ticket.ticket_id)
+                except Exception as e:
+                    # Notify user in Slack if clarification fails
+                    token_obj = SlackToken.objects.order_by("-created_at").first()
+                    if token_obj:
+                        headers = {
+                            "Authorization": f"Bearer {token_obj.access_token}",
+                            "Content-Type": "application/json",
+                        }
+                        requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                            "channel": user_id,
+                            "text": f"Sorry, there was an error saving your clarification: {str(e)}"
+                        })
                 return JsonResponse({"response_action": "clear"})
             # --- Feedback text modal ---
             elif callback_id == "feedback_text_modal":
