@@ -123,7 +123,6 @@ class Ticket(models.Model):
             from solutions.models import Solution
             steps = None
             if isinstance(self.agent_response, dict):
-                # Try to extract steps from agent_response
                 steps = self.agent_response.get("resolution_steps") or self.agent_response.get("steps")
                 if steps and isinstance(steps, list):
                     steps = "\n".join(steps)

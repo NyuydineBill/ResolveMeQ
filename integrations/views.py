@@ -412,6 +412,22 @@ def slack_modal_submission(request):
                     interaction_type="feedback",
                     content=f"User feedback: {feedback}"
                 )
+                # Send confirmation to user
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                        "channel": user_id,
+                        "text": "Thank you for your feedback! Our IT team will review it shortly."
+                    })
+                # (Optional) Notify IT staff (e.g., send to a channel)
+                # requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                #     "channel": "#it-support",
+                #     "text": f"New feedback for Ticket #{ticket_id}: {feedback}"
+                # })
             except Exception:
                 pass
             return JsonResponse({"response_action": "clear"})
@@ -656,9 +672,9 @@ class SlackInteractiveActionView(View):
                                         "type": "plain_text_input",
                                         "action_id": "feedback_text",
                                         "multiline": True,
-                                        "placeholder": {"type": "plain_text", "text": "Type your feedback or describe your issue..."}
+                                        "placeholder": {"type": "plain_text", "text": "Type your feedback or describe your issue in detail..."}
                                     },
-                                    "label": {"type": "plain_text", "text": "Your Feedback"},
+                                    "label": {"type": "plain_text", "text": "Your Feedback (required)"},
                                 }
                             ]
                         }
@@ -735,6 +751,22 @@ class SlackInteractiveActionView(View):
                         interaction_type="feedback",
                         content=f"User feedback: {feedback}"
                     )
+                    # Send confirmation to user
+                    token_obj = SlackToken.objects.order_by("-created_at").first()
+                    if token_obj:
+                        headers = {
+                            "Authorization": f"Bearer {token_obj.access_token}",
+                            "Content-Type": "application/json",
+                        }
+                        requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                            "channel": user_id,
+                            "text": "Thank you for your feedback! Our IT team will review it shortly."
+                        })
+                    # (Optional) Notify IT staff (e.g., send to a channel)
+                    # requests.post("https://slack.com/api/chat.postMessage", headers=headers, json={
+                    #     "channel": "#it-support",
+                    #     "text": f"New feedback for Ticket #{ticket_id}: {feedback}"
+                    # })
                 except Exception:
                     pass
                 return JsonResponse({"response_action": "clear"})
@@ -745,7 +777,7 @@ class SlackInteractiveActionView(View):
 
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
     """
-    Sends the agent's analysis and recommendations to the user via Slack DM.
+    Sends the agent's analysis and recommendations to the user via Slack DM, with interactive buttons.
     Args:
         user_id (str): Slack user ID.
         ticket_id (int): Ticket ID.
@@ -770,21 +802,56 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
             agent_response = {"analysis": {}, "recommendations": {}}
     analysis = agent_response.get("analysis", {})
     recommendations = agent_response.get("recommendations", {})
-    text_lines = [f"🤖 *Agent Analysis for Ticket #{ticket_id}*:"]
+    # Build Slack blocks
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"🤖 *Agent Analysis for Ticket #{ticket_id}*"}},
+    ]
     if analysis:
         for k, v in analysis.items():
-            text_lines.append(f"*{k.replace('_',' ').capitalize()}:* {v}")
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{k.replace('_',' ').capitalize()}:* {v}"}})
     if recommendations:
-        text_lines.append("\n*Recommendations:*")
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "*Recommendations:*"}})
         for k, v in recommendations.items():
             if isinstance(v, list):
-                text_lines.append(f"*{k.replace('_',' ').capitalize()}:*\n- " + "\n- ".join(v))
+                blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{k.replace('_',' ').capitalize()}:*\n- " + "\n- ".join(v)}})
             else:
-                text_lines.append(f"*{k.replace('_',' ').capitalize()}:* {v}")
-    text = "\n".join(text_lines)
+                blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{k.replace('_',' ').capitalize()}:* {v}"}})
+    # Add interactive buttons
+    blocks.append({
+        "type": "actions",
+        "elements": [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "✅ Mark as Resolved"},
+                "style": "primary",
+                "value": f"resolve_{ticket_id}",
+                "action_id": "resolve_ticket"
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "✏️ Clarify"},
+                "value": f"clarify_{ticket_id}",
+                "action_id": "clarify_ticket"
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "🚨 Escalate"},
+                "style": "danger",
+                "value": f"escalate_{ticket_id}",
+                "action_id": "escalate_ticket"
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "💬 Feedback"},
+                "value": f"feedback_{ticket_id}",
+                "action_id": "feedback_text"
+            }
+        ]
+    })
     payload = {
         "channel": user_id,
-        "text": text,
+        "blocks": blocks,
+        "text": f"Agent response for Ticket #{ticket_id}",
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts

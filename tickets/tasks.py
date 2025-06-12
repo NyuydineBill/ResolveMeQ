@@ -6,6 +6,7 @@ from .models import Ticket
 import logging
 from core.celery import app
 from integrations.views import notify_user_agent_response  # Restored import for Slack feedback
+from solutions.models import Solution
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,27 @@ def process_ticket_with_agent(self, ticket_id, thread_ts=None):
         ticket.agent_response = response.json()
         ticket.agent_processed = True
         ticket.save()
+
+        # --- Create Solution if agent provided steps or resolution ---
+        agent_data = ticket.agent_response
+        steps = None
+        if isinstance(agent_data, dict):
+            steps = agent_data.get("resolution_steps") or agent_data.get("steps")
+            if steps and isinstance(steps, list):
+                steps = "\n".join(steps)
+        if steps:
+            Solution.objects.get_or_create(
+                ticket=ticket,
+                defaults={
+                    "steps": steps,
+                    "worked": False,  # Mark as worked only if user confirms
+                    "created_by": ticket.user,
+                }
+            )
+
+        # --- Sync to knowledge base if ticket is resolved ---
+        if ticket.status == "resolved":
+            ticket.sync_to_knowledge_base()
 
         logger.info(f"Successfully processed ticket {ticket_id} with agent")
         
