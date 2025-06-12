@@ -397,6 +397,22 @@ def slack_modal_submission(request):
             )
             notify_user_ticket_created(user_id, ticket.ticket_id)
             return JsonResponse({"response_action": "clear"})
+        if payload.get("type") == "view_submission" and payload.get("view", {}).get("callback_id") == "feedback_text_modal":
+            ticket_id = payload["view"].get("private_metadata")
+            feedback = payload["view"]["state"]["values"]["feedback_block"]["feedback_text"]["value"]
+            user_id = payload["user"]["id"]
+            from tickets.models import Ticket, TicketInteraction
+            try:
+                ticket = Ticket.objects.get(ticket_id=ticket_id)
+                TicketInteraction.objects.create(
+                    ticket=ticket,
+                    user=ticket.user,
+                    interaction_type="feedback",
+                    content=f"User feedback: {feedback}"
+                )
+            except Exception:
+                pass
+            return JsonResponse({"response_action": "clear"})
         return JsonResponse({}, status=200)
     return HttpResponse(status=405)
 
@@ -600,6 +616,43 @@ def slack_interactive_action(request):
                     "text": f"🚨 Ticket #{ticket_id} has been escalated. An IT admin will review it shortly."
                 })
                 return HttpResponse()
+            # Handle feedback text button
+            elif action_id == "feedback_text" and value.startswith("feedback_"):
+                ticket_id = value.replace("feedback_", "")
+                token_obj = SlackToken.objects.order_by("-created_at").first()
+                if token_obj:
+                    headers = {
+                        "Authorization": f"Bearer {token_obj.access_token}",
+                        "Content-Type": "application/json",
+                    }
+                    modal_view = {
+                        "type": "modal",
+                        "callback_id": "feedback_text_modal",
+                        "title": {"type": "plain_text", "text": "Provide Feedback"},
+                        "submit": {"type": "plain_text", "text": "Send"},
+                        "close": {"type": "plain_text", "text": "Cancel"},
+                        "private_metadata": ticket_id,
+                        "blocks": [
+                            {
+                                "type": "input",
+                                "block_id": "feedback_block",
+                                "element": {
+                                    "type": "plain_text_input",
+                                    "action_id": "feedback_text",
+                                    "multiline": True,
+                                    "placeholder": {"type": "plain_text", "text": "Type your feedback or describe your issue..."}
+                                },
+                                "label": {"type": "plain_text", "text": "Your Feedback"},
+                            }
+                        ]
+                    }
+                    trigger_id = payload.get("trigger_id")
+                    data = {
+                        "trigger_id": trigger_id,
+                        "view": modal_view,
+                    }
+                    requests.post("https://slack.com/api/views.open", headers=headers, json=data)
+                return HttpResponse()
     return HttpResponse(status=405)
 
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
@@ -711,7 +764,13 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
                     "style": "primary",
                     "value": f"resolve_{ticket_id}",
                     "action_id": "resolve_ticket"
-                }
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Provide Feedback"},
+                    "value": f"feedback_{ticket_id}",
+                    "action_id": "feedback_text"
+                },
             ]
         }
     ]
