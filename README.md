@@ -171,5 +171,6 @@ We introduce **Resolve Me, Quickly**, an AI-powered IT Helpdesk Agent that:
 - Conduct technical spike: Test Slack API + OpenAI integration  
 - Prioritize top 5 repetitive ticket types (survey IT teams)  
 - Develop scalable knowledge management module  
+-e
 
 ---
