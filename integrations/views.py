@@ -433,6 +433,7 @@ class SlackInteractiveActionView(View):
         return super().dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
+        print("IN POST METHOD")
         if not verify_slack_request(request):
             import logging
             logger = logging.getLogger(__name__)
