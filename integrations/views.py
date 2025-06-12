@@ -15,6 +15,7 @@ import time
 from .models import SlackToken
 import requests
 from django.views import View
+from django.utils.decorators import method_decorator
 
 @csrf_exempt
 def slack_oauth_redirect(request):
@@ -417,7 +418,13 @@ def slack_modal_submission(request):
         return JsonResponse({}, status=200)
     return HttpResponse(status=405)
 
+@method_decorator(csrf_exempt, name="dispatch")
 class SlackInteractiveActionView(View):
+    """
+    Handles Slack interactive message actions (button clicks, etc.) sent via POST from Slack.
+    Exempts this endpoint from CSRF protection, as Slack does not send CSRF tokens.
+    Verifies Slack request signature for security.
+    """
     def post(self, request, *args, **kwargs):
         if not verify_slack_request(request):
             return HttpResponse(status=403)
