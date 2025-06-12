@@ -617,6 +617,7 @@ class SlackInteractiveActionView(View):
                             "title": {"type": "plain_text", "text": "Provide More Info"},
                             "submit": {"type": "plain_text", "text": "Submit"},
                             "close": {"type": "plain_text", "text": "Cancel"},
+                            "private_metadata": ticket_id,
                             "blocks": [
                                 {
                                     "type": "input",
@@ -743,13 +744,15 @@ class SlackInteractiveActionView(View):
                 return JsonResponse({"response_action": "clear"})
             # --- Clarification modal ---
             elif callback_id == "clarify_modal":
+                ticket_id = payload["view"].get("private_metadata")
                 values = payload["view"]["state"]["values"]
                 description = values["description_block"]["description"]["value"]
                 issue_type = values["issue_type_block"]["issue_type"]["value"]
                 user_id = payload["user"]["id"]
                 from tickets.models import Ticket, TicketInteraction
-                ticket = Ticket.objects.filter(user__user_id=user_id, status__in=["new", "in-progress"]).order_by("-created_at").first()
-                if not ticket:
+                try:
+                    ticket = Ticket.objects.get(ticket_id=ticket_id)
+                except Ticket.DoesNotExist:
                     # Notify user in Slack if ticket not found
                     token_obj = SlackToken.objects.order_by("-created_at").first()
                     if token_obj:
