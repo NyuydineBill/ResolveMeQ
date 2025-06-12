@@ -14,6 +14,7 @@ import hashlib
 import time
 from .models import SlackToken
 import requests
+from django.views import View
 
 @csrf_exempt
 def slack_oauth_redirect(request):
@@ -416,18 +417,8 @@ def slack_modal_submission(request):
         return JsonResponse({}, status=200)
     return HttpResponse(status=405)
 
-@csrf_exempt
-def slack_interactive_action(request):
-    """
-    Handles interactive actions (e.g., button clicks) from Slack.
-
-    Methods:
-        POST: Processes interactive actions.
-
-    Returns:
-        HttpResponse
-    """
-    if request.method == "POST":
+class SlackInteractiveActionView(View):
+    def post(self, request, *args, **kwargs):
         if not verify_slack_request(request):
             return HttpResponse(status=403)
         payload = json.loads(request.POST.get("payload", "{}"))
@@ -653,7 +644,7 @@ def slack_interactive_action(request):
                     }
                     requests.post("https://slack.com/api/views.open", headers=headers, json=data)
                 return HttpResponse()
-    return HttpResponse(status=405)
+        return HttpResponse(status=405)
 
 def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=None):
     """
