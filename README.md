@@ -147,6 +147,44 @@ We introduce **Resolve Me, Quickly**, an AI-powered IT Helpdesk Agent that:
 
 ---
 
+## 🌐 Web Portal & REST API (2025-06)
+
+ResolveMeQ now includes a full-featured web portal and REST API for ticket management, agent workflows, and analytics. All Slack flows are available via API, plus advanced features for portal users and IT staff:
+
+### Ticket Management Endpoints
+- Create, view, update, and search/filter tickets
+- Add clarifications, feedback, comments, and attachments
+- View ticket history and audit log
+- Escalate, assign, and bulk update tickets
+- Agent/admin dashboard and analytics
+- Suggest knowledge base articles and AI-suggested solutions
+- Internal notes for agents
+
+### Example API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/tickets/` | POST | Create a new ticket |
+| `/api/tickets/` | GET | List all tickets (filter by user/status) |
+| `/api/tickets/<ticket_id>/` | GET | Get ticket details |
+| `/api/tickets/<ticket_id>/` | PATCH | Update ticket |
+| `/api/tickets/<ticket_id>/clarify/` | POST | Add clarification |
+| `/api/tickets/<ticket_id>/feedback/` | POST | Add feedback |
+| `/api/tickets/<ticket_id>/comment/` | POST | Add comment |
+| `/api/tickets/<ticket_id>/upload/` | POST | Upload attachment |
+| `/api/tickets/<ticket_id>/escalate/` | POST | Escalate ticket |
+| `/api/tickets/<ticket_id>/assign/` | POST | Assign ticket |
+| `/api/tickets/<ticket_id>/status/` | POST | Update status |
+| `/api/tickets/<ticket_id>/history/` | GET | Ticket history |
+| `/api/tickets/<ticket_id>/audit-log/` | GET | Audit log |
+| `/api/tickets/<ticket_id>/kb-suggestions/` | GET | KB suggestions |
+| `/api/tickets/<ticket_id>/ai-suggestions/` | GET | AI suggestions |
+| `/api/tickets/agent-dashboard/` | GET | Agent/admin dashboard |
+| `/api/tickets/bulk-update/` | POST | Bulk update tickets |
+
+See the code and `/docs/` for full API documentation and usage examples.
+
+---
+
 ## 🛣️ Roadmap
 
 | Quarter   | Milestone                          |
@@ -172,5 +210,3 @@ We introduce **Resolve Me, Quickly**, an AI-powered IT Helpdesk Agent that:
 - Prioritize top 5 repetitive ticket types (survey IT teams)  
 - Develop scalable knowledge management module  
 -e
-
----

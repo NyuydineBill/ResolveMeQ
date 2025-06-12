@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Solution, KnowledgeBaseEntry, Ticket
+from .models import Solution, KnowledgeBaseEntry, Ticket, TicketInteraction
 
 class SolutionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,4 +33,20 @@ class KnowledgeBaseEntryListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'issue_type', 'category', 'confidence_score',
             'verified', 'usage_count', 'last_used'
-        ] 
+        ]
+
+class TicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ticket
+        fields = [
+            'ticket_id', 'user', 'issue_type', 'status', 'description', 'screenshot',
+            'assigned_to', 'category', 'tags', 'created_at', 'updated_at', 'agent_response', 'agent_processed'
+        ]
+        read_only_fields = ['ticket_id', 'created_at', 'updated_at', 'agent_response', 'agent_processed']
+
+class TicketInteractionSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    class Meta:
+        model = TicketInteraction
+        fields = ['id', 'ticket', 'user', 'interaction_type', 'content', 'created_at']
+        read_only_fields = ['id', 'created_at']

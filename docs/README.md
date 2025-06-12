@@ -135,4 +135,38 @@ ResolveMeQ is a modular Django-based IT support and automation platform with Sla
 
 ---
 
+## 🌐 Web Portal & REST API (2025-06)
+
+ResolveMeQ now supports a robust web portal and REST API for:
+- Creating, updating, searching, and filtering tickets
+- Adding clarifications, feedback, comments, and attachments
+- Viewing ticket history and audit logs
+- Escalating, assigning, and bulk updating tickets
+- Agent/admin dashboards and analytics
+- Knowledge base and AI-powered suggestions
+- Internal notes for agents
+
+### Example Endpoints
+- `POST   /api/tickets/` — Create a new ticket
+- `GET    /api/tickets/` — List/filter tickets
+- `GET    /api/tickets/<ticket_id>/` — Ticket details
+- `PATCH  /api/tickets/<ticket_id>/` — Update ticket
+- `POST   /api/tickets/<ticket_id>/clarify/` — Add clarification
+- `POST   /api/tickets/<ticket_id>/feedback/` — Add feedback
+- `POST   /api/tickets/<ticket_id>/comment/` — Add comment
+- `POST   /api/tickets/<ticket_id>/upload/` — Upload attachment
+- `POST   /api/tickets/<ticket_id>/escalate/` — Escalate ticket
+- `POST   /api/tickets/<ticket_id>/assign/` — Assign ticket
+- `POST   /api/tickets/<ticket_id>/status/` — Update status
+- `GET    /api/tickets/<ticket_id>/history/` — Ticket history
+- `GET    /api/tickets/<ticket_id>/audit-log/` — Audit log
+- `GET    /api/tickets/<ticket_id>/kb-suggestions/` — KB suggestions
+- `GET    /api/tickets/<ticket_id>/ai-suggestions/` — AI suggestions
+- `GET    /api/tickets/agent-dashboard/` — Agent/admin dashboard
+- `POST   /api/tickets/bulk-update/` — Bulk update tickets
+
+See `/api/tickets/` and `/docs/` for full API documentation and usage.
+
+---
+
 For more details, see each app's code and the API docs.
