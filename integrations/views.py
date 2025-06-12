@@ -425,6 +425,13 @@ class SlackInteractiveActionView(View):
     Exempts this endpoint from CSRF protection, as Slack does not send CSRF tokens.
     Verifies Slack request signature for security.
     """
+    def dispatch(self, request, *args, **kwargs):
+        from django.http import HttpResponseNotAllowed
+        print("Method received:", request.method)
+        if request.method.lower() != 'post':
+            return HttpResponseNotAllowed(['POST'])
+        return super().dispatch(request, *args, **kwargs)
+
     def post(self, request, *args, **kwargs):
         if not verify_slack_request(request):
             import logging
