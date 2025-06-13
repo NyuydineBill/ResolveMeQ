@@ -1,7 +1,9 @@
+from django.conf import settings
 from django.db import models
 from tickets.models import Ticket
-from users.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
+
+User = settings.AUTH_USER_MODEL
 
 class Solution(models.Model):
     solution_id = models.AutoField(primary_key=True)

@@ -1,22 +1,21 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from .models import KnowledgeBaseArticle
 from tickets.models import Ticket
-from users.models import User
 import json
+User = get_user_model()
 
 class KnowledgeBaseTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create(
-            user_id="U123",
+        self.user = User.objects.create_user(
             name="Test User",
             email="test@example.com"
         )
-        self.admin_user = User.objects.create(
-            user_id="U456",
+        self.admin_user = User.objects.create_user(
             name="Admin User",
             email="admin@example.com",
             is_staff=True
