@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from solutions.models import Solution  # Ensure this import is correct
+from solutions.models import Solution,KnowledgeBaseEntry
 from tickets.models import Ticket, TicketInteraction
-from knowledge_base.models import KnowledgeBaseEntry  # Ensure this import is correct
+
 
 class SolutionSerializer(serializers.ModelSerializer):
     class Meta:
