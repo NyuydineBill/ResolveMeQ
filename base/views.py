@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -39,32 +40,44 @@ class RegisterAPIView(GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        password = serializer.validated_data['password']
-        user = serializer.save()
-        user.set_password(password)
 
-        if not user.secure_code:
-            user.generate_new_secure_code()
+        try:
+            with transaction.atomic():
+                password = serializer.validated_data['password']
+                user = serializer.save()
+                user.set_password(password)
 
-        user.save()
-        # send a verification email here
-        data = {
-            "subject": "Verify your email",
-        }
-        context = {
-            "email": user.email,
-            "token": user.secure_code,
-            "username": user.username,
-            "expiration": user.secure_code_expiry,
-            "app_name": "Jamboride",
-            "verification_link": settings.FRONTEND_URL + reverse('verify-user'),
-        }
-        send_email_with_template.delay(data, 'welcome.html', context, [user.email])
-        print("Email sent to:", user.email)
-        print("With token:", user.secure_code)
-        return Response({
-            "Message": "Successfully registered"
-        }, status=status.HTTP_201_CREATED)
+                if not user.secure_code:
+                    user.generate_new_secure_code()
+
+                user.save()
+
+                # All database operations completed successfully
+
+            # Email sending outside transaction since it's an external operation
+            data = {
+                "subject": "Verify your email",
+            }
+            context = {
+                "email": user.email,
+                "token": user.secure_code,
+                "username": user.username,
+                "expiration": user.secure_code_expiry,
+                "app_name": "ResolveMeQ",
+                "verification_link": settings.FRONTEND_URL + reverse('verify-user'),
+            }
+            send_email_with_template.delay(data, 'welcome.html', context, [user.email])
+            print("Email sent to:", user.email)
+            print("With token:", user.secure_code)
+
+            return Response({
+                "Message": "Successfully registered"
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyUserAPIView(GenericAPIView):
@@ -228,7 +241,7 @@ class ResendVerificationCodeAPIView(GenericAPIView):
             "token": user.secure_code,
             "username": user.username,
             "expiration": user.secure_code_expiry,
-            "app_name": "Jamboride",
+            "app_name": "ResolveMeQ",
             "verification_link": settings.FRONTEND_URL + reverse('verify_user'),
         }
         send_email_with_template.delay(data, 'welcome.html', context, [user.email])

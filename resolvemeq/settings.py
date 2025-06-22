@@ -20,7 +20,7 @@ SECRET_KEY = "django-insecure-xoeau&915nx&jsisbu$@p4h3^iva-4s4bxov6nj5l@y2l48d%r
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-
+FRONTEND_URL="https://app.resolvemeq.com"
 # Application definition
 
 INSTALLED_APPS = [
@@ -56,7 +56,7 @@ ROOT_URLCONF = "resolvemeq.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -74,15 +74,15 @@ WSGI_APPLICATION = "resolvemeq.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 """
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -96,7 +96,7 @@ DATABASES = {
         },
     }
 }
-"""
+
 CSRF_TRUSTED_ORIGINS = [
     "https://app.resolvemeq.com",
 ]
@@ -165,7 +165,7 @@ REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 
 # Email Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.example.com')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ['true', '1', 'yes']
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')

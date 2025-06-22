@@ -23,4 +23,5 @@ def send_email_with_template(data: dict, template_name: str, context: dict, reci
         email.send()
         logger.info('Email sent')
     except Exception as e:
+        logger.error(f'Email sending failed: {str(e)}', exc_info=True)
         print("❌ EMAIL FAILED:", str(e))

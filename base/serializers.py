@@ -17,7 +17,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'username', 'confirm_password']
+        fields = ['email', 'username', 'password', 'confirm_password']
 
     def validate(self, data):
         password = data['password']
@@ -85,7 +85,7 @@ class VerifyUserSerializer(serializers.Serializer):
                     "token": user.secure_code,
                     "username": user.username,
                     "expiration": user.secure_code_expiry,
-                    "app_name": "Jamboride",
+                    "app_name": "ResolveMeQ",
                     "verification_link": settings.FRONTEND_URL + reverse('verify-user'),
                 }
                 send_email_with_template.delay(data, 'welcome.html', context, [user.email])
