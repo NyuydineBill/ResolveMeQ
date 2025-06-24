@@ -17,5 +17,7 @@ sqlparse==0.5.3
 typing_extensions==4.14.0
 uritemplate==4.2.0
 urllib3==2.4.0
-celery==5.3.6
+celery~=5.5.3
 redis==5.0.1
+
+dj-config-url~=0.1.1

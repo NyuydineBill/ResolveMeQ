@@ -1,9 +1,10 @@
+from django.contrib.auth import get_user_model
 from django.db import models
-from users.models import User
 import requests
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
+User = get_user_model()
 # Create your models here.
 
 class Ticket(models.Model):
@@ -70,15 +71,15 @@ class Ticket(models.Model):
                     'department': self.user.department
                 }
             }
-            
+
             response = requests.post(agent_url, json=payload)
             response.raise_for_status()
-            
+
             self.agent_response = response.json()
             self.agent_processed = True
             self.save()
             return True
-            
+
         except Exception as e:
             print(f"Error sending ticket {self.ticket_id} to AI agent: {str(e)}")
             return False
