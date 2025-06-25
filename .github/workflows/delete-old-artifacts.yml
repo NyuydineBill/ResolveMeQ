@@ -1,0 +1,16 @@
+name: Delete Old Artifacts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *' # Runs daily at 03:00 UTC
+
+jobs:
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete artifacts older than 7 days, keep last 5
+        uses: c-hive/gha-remove-artifacts@v2
+        with:
+          age: '7 days'
+          skip-recent: 5
