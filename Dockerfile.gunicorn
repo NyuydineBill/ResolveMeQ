@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a virtual environment
+RUN python3 -m venv /app/venv
+
+# Copy requirements.txt into the container
+COPY requirements.txt /app/requirements.txt
+
+# Activate the virtual environment and install dependencies
+RUN . /app/venv/bin/activate && pip install --upgrade pip && pip install -r /app/requirements.txt && pip install gunicorn
+
+# Copy the rest of the code
+COPY . /app
+
+WORKDIR /app
+
+# Expose port (default for Gunicorn)
+ARG PORT=8000
+ENV PORT=${PORT}
+EXPOSE ${PORT}
+
+# Set environment variables for Django and Gunicorn
+ENV DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-resolvemeq.settings}
+
+# Start Gunicorn server with dynamic port
+CMD ["/app/venv/bin/gunicorn", "resolvemeq.wsgi:application", "--bind", "0.0.0.0:${PORT}"]
