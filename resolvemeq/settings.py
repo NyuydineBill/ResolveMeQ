@@ -39,7 +39,6 @@ INSTALLED_APPS = [
     "automation",
     "integrations",
     'base',
-    'users',
 ]
 
 MIDDLEWARE = [
