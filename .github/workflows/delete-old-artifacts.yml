@@ -1,4 +1,4 @@
-name: Delete Old Artifacts
+name: Delete All Artifacts
 
 on:
   workflow_dispatch:
@@ -13,8 +13,8 @@ jobs:
   cleanup-artifacts:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete artifacts older than 7 days, keep last 5
+      - name: Delete artifacts older than 0 days, keep last 0
         uses: c-hive/gha-remove-artifacts@v1
         with:
-          age: '7 days'
-          skip-recent: 5
+          age: '0 days'
+          skip-recent: 0
