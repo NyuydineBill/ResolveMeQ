@@ -1,6 +1,6 @@
 from django.test import TestCase
 from tickets.models import Ticket
-from users.models import User
+from base.models import User
 from .models import Solution
 
 class SolutionModelTest(TestCase):

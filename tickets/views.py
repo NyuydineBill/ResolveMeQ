@@ -348,7 +348,7 @@ def assign_ticket(request, ticket_id):
     agent_id = request.data.get("agent_id")
     if not agent_id:
         return Response({"error": "agent_id is required."}, status=400)
-    from users.models import User
+    from base.models import User
     agent = get_object_or_404(User, user_id=agent_id)
     ticket.assigned_to = agent
     ticket.save()

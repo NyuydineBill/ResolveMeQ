@@ -16,6 +16,7 @@ from .models import SlackToken
 import requests
 from django.views import View
 from django.utils.decorators import method_decorator
+from base.models import User
 
 @csrf_exempt
 def slack_oauth_redirect(request):
@@ -405,7 +406,6 @@ def slack_modal_submission(request):
             screenshot = values.get("screenshot_block", {}).get("screenshot", {}).get("value", "")
             user_id = payload["user"]["id"]
             from tickets.models import Ticket, TicketInteraction
-            from users.models import User
             user, _ = User.objects.get_or_create(user_id=user_id, defaults={"name": user_id})
             ticket = Ticket.objects.create(
                 user=user,
@@ -724,7 +724,6 @@ class SlackInteractiveActionView(View):
                 screenshot = values.get("screenshot_block", {}).get("screenshot", {}).get("value", "")
                 user_id = payload["user"]["id"]
                 from tickets.models import Ticket, TicketInteraction
-                from users.models import User
                 user, _ = User.objects.get_or_create(user_id=user_id, defaults={"name": user_id})
                 ticket = Ticket.objects.create(
                     user=user,

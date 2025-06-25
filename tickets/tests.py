@@ -1,5 +1,5 @@
 from django.test import TestCase
-from users.models import User
+from base.models import User
 from .models import Ticket
 
 class TicketModelTest(TestCase):
