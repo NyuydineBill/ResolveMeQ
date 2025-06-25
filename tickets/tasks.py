@@ -33,9 +33,9 @@ def process_ticket_with_agent(self, ticket_id, thread_ts=None):
             "category": ticket.category,
             "tags": ticket.tags,
             "user": {
-                "id": ticket.user.user_id,
-                "name": ticket.user.name,
-                "department": ticket.user.department or ""
+                "id": str(ticket.user.id),
+                "name": ticket.user.username,
+                "department": getattr(ticket.user, "department", "")
             }
         }
 
@@ -76,7 +76,7 @@ def process_ticket_with_agent(self, ticket_id, thread_ts=None):
         logger.info(f"Successfully processed ticket {ticket_id} with agent")
         
         # Notify user via Slack with agent response (threaded)
-        notify_user_agent_response(ticket.user.user_id, ticket.ticket_id, ticket.agent_response, thread_ts=thread_ts)
+        notify_user_agent_response(str(ticket.user.id), ticket.ticket_id, ticket.agent_response, thread_ts=thread_ts)
 
         return True
 
