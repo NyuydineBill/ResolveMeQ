@@ -406,7 +406,7 @@ def slack_modal_submission(request):
             screenshot = values.get("screenshot_block", {}).get("screenshot", {}).get("value", "")
             user_id = payload["user"]["id"]
             from tickets.models import Ticket, TicketInteraction
-            user, _ = User.objects.get_or_create(user_id=user_id, defaults={"name": user_id})
+            user, _ = User.objects.get_or_create(username=user_id, defaults={"email": f"{user_id}@slack.local"})
             ticket = Ticket.objects.create(
                 user=user,
                 issue_type=f"{issue_type} ({urgency})",
@@ -724,7 +724,7 @@ class SlackInteractiveActionView(View):
                 screenshot = values.get("screenshot_block", {}).get("screenshot", {}).get("value", "")
                 user_id = payload["user"]["id"]
                 from tickets.models import Ticket, TicketInteraction
-                user, _ = User.objects.get_or_create(user_id=user_id, defaults={"name": user_id})
+                user, _ = User.objects.get_or_create(username=user_id, defaults={"email": f"{user_id}@slack.local"})
                 ticket = Ticket.objects.create(
                     user=user,
                     issue_type=f"{issue_type} ({urgency})",
