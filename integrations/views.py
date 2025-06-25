@@ -831,7 +831,7 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
     """
     Sends the agent's analysis and recommendations to the user via Slack DM, with interactive buttons.
     Args:
-        user_id (str): Slack user ID.
+        user_id (str): Slack user ID or UUID.
         ticket_id (int): Ticket ID.
         agent_response (dict): The response from the agent (should be a dict, not JSON string).
         thread_ts (str, optional): Slack thread timestamp to reply in thread.
@@ -900,8 +900,12 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
             }
         ]
     })
+    # If user_id looks like a Slack email (Uxxxx@slack.local), extract the Slack ID
+    slack_channel = user_id
+    if isinstance(user_id, str) and user_id.endswith("@slack.local"):
+        slack_channel = user_id.split("@", 1)[0]
     payload = {
-        "channel": user_id,
+        "channel": slack_channel,
         "blocks": blocks,
         "text": f"Agent response for Ticket #{ticket_id}",
     }
