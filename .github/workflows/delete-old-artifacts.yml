@@ -5,13 +5,16 @@ on:
   schedule:
     - cron: '0 3 * * *' # Runs daily at 03:00 UTC
 
+permissions:
+  actions: write  # ✅ Required for deleting artifacts
+  contents: read  # ✅ Default needed for most actions
+
 jobs:
   cleanup-artifacts:
     runs-on: ubuntu-latest
     steps:
       - name: Delete artifacts older than 7 days, keep last 5
         uses: c-hive/gha-remove-artifacts@v1
-
         with:
           age: '7 days'
           skip-recent: 5
