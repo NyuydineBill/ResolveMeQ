@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete artifacts older than 7 days, keep last 5
-        uses: c-hive/gha-remove-artifacts@v2
+        uses: c-hive/gha-remove-artifacts@v1
+
         with:
           age: '7 days'
           skip-recent: 5
