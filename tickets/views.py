@@ -12,7 +12,7 @@ from .tasks import process_ticket_with_agent
 from .serializers import TicketSerializer, TicketInteractionSerializer
 import logging
 from django.conf import settings
-from users.models import User
+from base.models import User
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.storage import default_storage
