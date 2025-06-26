@@ -42,10 +42,6 @@ jobs:
       run: |
         python -c "import django; import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings'); django.setup(); print('✓ Django test configuration is valid')"
 
-    - name: Run migrations
-      run: |
-        python manage.py migrate --settings=test_settings
-
     - name: Run comprehensive tests
       run: |
         echo "🧪 Running autonomous agent tests..."
