@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from .models import KnowledgeBaseArticle, LLMResponse
 from .serializers import KnowledgeBaseArticleSerializer, LLMResponseSerializer
 from .services import KnowledgeBaseService
@@ -93,3 +93,55 @@ class LLMResponseViewSet(viewsets.ModelViewSet):
         responses = KnowledgeBaseService.get_related_responses(query)
         serializer = self.get_serializer(responses, many=True)
         return Response({'results': serializer.data})
+
+# API endpoints for FastAPI agent access
+@api_view(['GET'])
+@permission_classes([AllowAny])  # You can add authentication later
+def kb_articles_for_agent(request):
+    """
+    Public API endpoint for FastAPI agent to access Knowledge Base articles.
+    Returns all articles with basic fields for AI processing.
+    """
+    articles = KnowledgeBaseArticle.objects.all().values(
+        'kb_id', 'title', 'content', 'tags', 
+        'created_at', 'updated_at', 'helpful_votes', 'total_votes'
+    )
+    return Response(list(articles))
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # You can add authentication later
+def search_kb_for_agent(request):
+    """
+    Search Knowledge Base articles for FastAPI agent.
+    POST body: {"query": "search term", "limit": 10}
+    """
+    query = request.data.get('query', '')
+    limit = request.data.get('limit', 10)
+    
+    if not query:
+        return Response({'error': 'Query parameter is required'}, status=400)
+    
+    articles = KnowledgeBaseArticle.objects.filter(
+        Q(title__icontains=query) |
+        Q(content__icontains=query)
+    ).order_by('-helpful_votes', '-views')[:limit]
+    
+    serializer = KnowledgeBaseArticleSerializer(articles, many=True)
+    return Response({
+        'query': query,
+        'results': serializer.data,
+        'count': len(serializer.data)
+    })
+
+@api_view(['GET'])
+@permission_classes([AllowAny])  # You can add authentication later
+def kb_article_by_id(request, kb_id):
+    """
+    Get specific Knowledge Base article by ID for FastAPI agent.
+    """
+    try:
+        article = KnowledgeBaseArticle.objects.get(kb_id=kb_id)
+        serializer = KnowledgeBaseArticleSerializer(article)
+        return Response(serializer.data)
+    except KnowledgeBaseArticle.DoesNotExist:
+        return Response({'error': 'Article not found'}, status=404)

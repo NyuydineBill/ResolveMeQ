@@ -12,6 +12,7 @@ from django.http import HttpResponse
 import hmac
 import hashlib
 import time
+import logging
 from .models import SlackToken
 import requests
 from django.views import View
@@ -914,3 +915,282 @@ def notify_user_agent_response(user_id, ticket_id, agent_response, thread_ts=Non
     resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
     import logging
     logging.getLogger(__name__).info(f"Sent agent response to Slack: {resp.text}")
+
+def notify_user_auto_resolution(user_id, ticket_id, params):
+    """
+    Notify user that their ticket was automatically resolved.
+    """
+    from .models import SlackToken
+    import requests
+    
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if not token_obj:
+        return
+        
+    headers = {
+        "Authorization": f"Bearer {token_obj.access_token}",
+        "Content-Type": "application/json",
+    }
+    
+    # Extract Slack user ID if needed
+    slack_channel = user_id
+    if isinstance(user_id, str) and user_id.endswith("@slack.local"):
+        slack_channel = user_id.split("@", 1)[0]
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"✅ *Ticket #{ticket_id} Auto-Resolved*\n\nYour issue has been automatically resolved by our AI agent!"
+            }
+        }
+    ]
+    
+    # Add resolution steps if available
+    resolution_steps = params.get('resolution_steps', [])
+    if resolution_steps:
+        steps_text = "\n".join([f"• {step}" for step in resolution_steps])
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Resolution Steps:*\n{steps_text}"
+            }
+        })
+    
+    # Add reasoning
+    reasoning = params.get('reasoning', '')
+    if reasoning:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Why this solution:* {reasoning}"
+            }
+        })
+    
+    # Add feedback buttons
+    blocks.append({
+        "type": "actions",
+        "elements": [
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "✅ Issue Resolved"},
+                "style": "primary",
+                "value": f"confirm_resolved_{ticket_id}",
+                "action_id": "confirm_resolution"
+            },
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "❌ Still Having Issues"},
+                "style": "danger",
+                "value": f"reopen_{ticket_id}",
+                "action_id": "reopen_ticket"
+            }
+        ]
+    })
+    
+    payload = {
+        "channel": slack_channel,
+        "blocks": blocks,
+        "text": f"Ticket #{ticket_id} has been auto-resolved",
+    }
+    
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    logging.getLogger(__name__).info(f"Sent auto-resolution notification: {resp.text}")
+
+def notify_escalation(user_id, ticket_id, params):
+    """
+    Notify user that their ticket has been escalated.
+    """
+    from .models import SlackToken
+    import requests
+    
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if not token_obj:
+        return
+        
+    headers = {
+        "Authorization": f"Bearer {token_obj.access_token}",
+        "Content-Type": "application/json",
+    }
+    
+    # Extract Slack user ID if needed
+    slack_channel = user_id
+    if isinstance(user_id, str) and user_id.endswith("@slack.local"):
+        slack_channel = user_id.split("@", 1)[0]
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"🚨 *Ticket #{ticket_id} Escalated*\n\nYour issue has been escalated to our {params.get('suggested_team', 'support team')} for specialized assistance."
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Reason:* {params.get('escalation_reason', 'Complex issue requiring human expertise')}\n*Priority:* {params.get('priority', 'medium').upper()}"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "A human support agent will review your case and contact you shortly."
+            }
+        }
+    ]
+    
+    payload = {
+        "channel": slack_channel,
+        "blocks": blocks,
+        "text": f"Ticket #{ticket_id} has been escalated",
+    }
+    
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    logging.getLogger(__name__).info(f"Sent escalation notification: {resp.text}")
+
+def request_clarification_from_user(user_id, ticket_id, params):
+    """
+    Request clarification from user via Slack.
+    """
+    from .models import SlackToken
+    import requests
+    
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if not token_obj:
+        return
+        
+    headers = {
+        "Authorization": f"Bearer {token_obj.access_token}",
+        "Content-Type": "application/json",
+    }
+    
+    # Extract Slack user ID if needed
+    slack_channel = user_id
+    if isinstance(user_id, str) and user_id.endswith("@slack.local"):
+        slack_channel = user_id.split("@", 1)[0]
+    
+    questions = params.get('questions', [])
+    questions_text = "\n".join([f"• {q}" for q in questions])
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"❓ *Need More Information - Ticket #{ticket_id}*\n\nTo provide you with the best solution, I need some additional details:"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": questions_text
+            }
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "💬 Provide Details"},
+                    "style": "primary",
+                    "value": f"clarify_{ticket_id}",
+                    "action_id": "clarify_ticket"
+                }
+            ]
+        }
+    ]
+    
+    payload = {
+        "channel": slack_channel,
+        "blocks": blocks,
+        "text": f"Need clarification for Ticket #{ticket_id}",
+    }
+    
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    logging.getLogger(__name__).info(f"Sent clarification request: {resp.text}")
+
+def send_solution_with_followup(user_id, ticket_id, params):
+    """
+    Send solution to user with automatic follow-up scheduled.
+    """
+    from .models import SlackToken
+    import requests
+    
+    token_obj = SlackToken.objects.order_by("-created_at").first()
+    if not token_obj:
+        return
+        
+    headers = {
+        "Authorization": f"Bearer {token_obj.access_token}",
+        "Content-Type": "application/json",
+    }
+    
+    # Extract Slack user ID if needed
+    slack_channel = user_id
+    if isinstance(user_id, str) and user_id.endswith("@slack.local"):
+        slack_channel = user_id.split("@", 1)[0]
+    
+    solution_steps = params.get('solution_steps', [])
+    steps_text = "\n".join([f"{i+1}. {step}" for i, step in enumerate(solution_steps)])
+    
+    followup_time = params.get('followup_time')
+    confidence = params.get('confidence_level', 0.0)
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"🔧 *Solution for Ticket #{ticket_id}*\n\nI've found a likely solution (confidence: {confidence:.0%}):"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Steps to resolve:*\n{steps_text}"
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"I'll check back with you in a few minutes to see if this resolved your issue."
+            }
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "✅ This Fixed It"},
+                    "style": "primary",
+                    "value": f"resolved_{ticket_id}",
+                    "action_id": "mark_resolved"
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "❌ Still Not Working"},
+                    "style": "danger",
+                    "value": f"escalate_{ticket_id}",
+                    "action_id": "escalate_ticket"
+                }
+            ]
+        }
+    ]
+    
+    payload = {
+        "channel": slack_channel,
+        "blocks": blocks,
+        "text": f"Solution for Ticket #{ticket_id}",
+    }
+    
+    resp = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    logging.getLogger(__name__).info(f"Sent solution with follow-up: {resp.text}")

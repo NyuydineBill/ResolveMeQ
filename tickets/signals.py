@@ -1,5 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.conf import settings
 from .models import Ticket
 from .tasks import process_ticket_with_agent
 from celery.exceptions import OperationalError
@@ -11,6 +12,10 @@ def ticket_created(sender, instance, created, **kwargs):
     Queues the ticket for processing by the AI agent using Celery.
     No retry will be attempted if queuing fails.
     """
+    # Skip agent processing during tests if disabled
+    if getattr(settings, 'TEST_DISABLE_AGENT', False):
+        return
+        
     if created and not instance.agent_processed:
         # Queue the task with Celery
         try:
