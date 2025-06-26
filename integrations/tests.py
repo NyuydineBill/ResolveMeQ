@@ -56,10 +56,17 @@ class SlackIntegrationTests(TestCase):
 
     def test_slack_slash_command_status(self):
         # Simulate a valid slash command for status
+        from base.models import User
+        user = User.objects.create_user(
+            username="slackuser",
+            email="slackuser@example.com",
+            first_name="Slack",
+            last_name="User"
+        )
         data = {
             "command": "/resolvemeq",
             "text": "status",
-            "user_id": "U123456",
+            "user_id": str(user.pk),  # Use a valid UUID
             "trigger_id": "testtrigger",
         }
         body = "&".join([f"{k}={v}" for k, v in data.items()])
