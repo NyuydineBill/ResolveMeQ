@@ -65,21 +65,34 @@ def process_ticket_with_agent(self, ticket_id, thread_ts=None):
         # --- Create Solution if agent provided steps or resolution ---
         agent_data = ticket.agent_response
         steps = None
+        confidence = 0.0
         if isinstance(agent_data, dict):
             solution_data = agent_data.get("solution", {})
             steps = solution_data.get("steps") or agent_data.get("resolution_steps") or agent_data.get("steps")
+            confidence = agent_data.get("confidence", 0.0)
             if steps and isinstance(steps, list):
                 steps = "\n".join(steps)
             elif isinstance(steps, str):
                 pass  # Already a string
-                
-        if steps:
+        # Mark as solution if confidence is high
+        if steps and confidence >= AutonomousAgent.HIGH_CONFIDENCE_THRESHOLD:
             Solution.objects.get_or_create(
                 ticket=ticket,
                 defaults={
                     "steps": steps,
-                    "worked": action == AgentAction.AUTO_RESOLVE,  # Auto-mark as worked if auto-resolved
+                    "worked": True,
                     "created_by": ticket.user,
+                    "confidence_score": confidence,
+                }
+            )
+        elif steps:
+            Solution.objects.get_or_create(
+                ticket=ticket,
+                defaults={
+                    "steps": steps,
+                    "worked": False,
+                    "created_by": ticket.user,
+                    "confidence_score": confidence,
                 }
             )
 

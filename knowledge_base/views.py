@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class KnowledgeBaseArticleViewSet(viewsets.ModelViewSet):
     queryset = KnowledgeBaseArticle.objects.all()
     serializer_class = KnowledgeBaseArticleSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [AllowAny]  # Allow public access for FastAPI agent
     lookup_field = 'kb_id'
 
     @action(detail=False, methods=['post'])
@@ -60,7 +60,7 @@ class KnowledgeBaseArticleViewSet(viewsets.ModelViewSet):
 class LLMResponseViewSet(viewsets.ModelViewSet):
     queryset = LLMResponse.objects.all()
     serializer_class = LLMResponseSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Allow public access for FastAPI agent
     lookup_field = 'response_id'
 
     def create(self, request, *args, **kwargs):
