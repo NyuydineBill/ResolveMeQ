@@ -3,7 +3,6 @@ Comprehensive test suite for ResolveMe autonomous agent system.
 Tests all critical functionality before commits.
 """
 
-import pytest
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -414,6 +413,3 @@ class PerformanceTest(TestCase):
         # Bulk create
         created_tickets = Ticket.objects.bulk_create(tickets)
         self.assertEqual(len(created_tickets), 10)
-
-if __name__ == '__main__':
-    pytest.main([__file__])
