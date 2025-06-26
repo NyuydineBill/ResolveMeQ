@@ -99,6 +99,10 @@ DATABASES = {
 
 CSRF_TRUSTED_ORIGINS = [
     "https://app.resolvemeq.com",
+    "https://api.resolvemeq.com",
+    "https://agent.resolvemeq.com",
+    
+
 ]
 
 # Password validation
