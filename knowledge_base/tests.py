@@ -12,12 +12,16 @@ class KnowledgeBaseTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
-            name="Test User",
-            email="test@example.com"
+            username="testuser",
+            email="test@example.com",
+            first_name="Test",
+            last_name="User"
         )
         self.admin_user = User.objects.create_user(
-            name="Admin User",
+            username="adminuser",
             email="admin@example.com",
+            first_name="Admin",
+            last_name="User",
             is_staff=True
         )
         self.client.force_authenticate(user=self.admin_user)
@@ -36,7 +40,7 @@ class KnowledgeBaseTests(TestCase):
 
     def test_kb_article_creation(self):
         """Test creating a new KB article"""
-        url = reverse('kb-article-list')
+        url = reverse('knowledgebasearticle-list')
         data = {
             'title': 'New KB Article',
             'content': 'Test content',
@@ -48,8 +52,8 @@ class KnowledgeBaseTests(TestCase):
 
     def test_kb_article_search(self):
         """Test searching KB articles"""
-        url = reverse('kb-article-search')
-        data = {'query': 'VPN connection problem'}
+        url = reverse('knowledgebasearticle-search')
+        data = {'query': 'VPN'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data['results']) > 0)
@@ -57,7 +61,7 @@ class KnowledgeBaseTests(TestCase):
 
     def test_kb_article_update(self):
         """Test updating a KB article"""
-        url = reverse('kb-article-detail', args=[self.kb_article1.kb_id])
+        url = reverse('knowledgebasearticle-detail', args=[self.kb_article1.kb_id])
         data = {
             'title': 'Updated VPN Issue',
             'content': self.kb_article1.content,
@@ -70,14 +74,14 @@ class KnowledgeBaseTests(TestCase):
 
     def test_kb_article_delete(self):
         """Test deleting a KB article"""
-        url = reverse('kb-article-detail', args=[self.kb_article1.kb_id])
+        url = reverse('knowledgebasearticle-detail', args=[self.kb_article1.kb_id])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(KnowledgeBaseArticle.objects.count(), 1)
 
     def test_kb_article_retrieval(self):
         """Test retrieving a specific KB article"""
-        url = reverse('kb-article-detail', args=[self.kb_article1.kb_id])
+        url = reverse('knowledgebasearticle-detail', args=[self.kb_article1.kb_id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'VPN Connection Issue')
@@ -85,13 +89,13 @@ class KnowledgeBaseTests(TestCase):
     def test_unauthorized_access(self):
         """Test unauthorized access to KB articles"""
         self.client.force_authenticate(user=self.user)  # Non-admin user
-        url = reverse('kb-article-list')
+        url = reverse('knowledgebasearticle-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_kb_article_tag_filtering(self):
         """Test filtering KB articles by tags"""
-        url = reverse('kb-article-list')
+        url = reverse('knowledgebasearticle-list')
         response = self.client.get(url, {'tags': 'vpn'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -99,7 +103,7 @@ class KnowledgeBaseTests(TestCase):
 
     def test_kb_article_content_search(self):
         """Test searching KB articles by content"""
-        url = reverse('kb-article-search')
+        url = reverse('knowledgebasearticle-search')
         data = {'query': 'printer troubleshooting'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

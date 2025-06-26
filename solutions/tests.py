@@ -5,7 +5,12 @@ from .models import Solution
 
 class SolutionModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create(user_id="U123", name="Test User")
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            first_name="Test",
+            last_name="User"
+        )
         self.ticket = Ticket.objects.create(
             user=self.user,
             issue_type="vpn (medium)",

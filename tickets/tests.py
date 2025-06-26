@@ -4,7 +4,12 @@ from .models import Ticket
 
 class TicketModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create(user_id="U123", name="Test User")
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            first_name="Test",
+            last_name="User"
+        )
 
     def test_create_ticket(self):
         ticket = Ticket.objects.create(

@@ -19,18 +19,28 @@ class KnowledgeBaseArticleViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def search(self, request):
-        query = request.data.get('query', '')
+        query = request.data.get('query', '').lower()
         if not query:
             return Response({'error': 'Query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        articles = self.queryset.filter(
-            Q(title__icontains=query) |
-            Q(content__icontains=query) |
-            Q(tags__contains=[query])
-        ).order_by('-views', '-helpful_votes')
-
+        # SQLite-compatible search: filter in Python for tags
+        articles = [a for a in self.queryset if (
+            query in a.title.lower() or
+            query in a.content.lower() or
+            any(query in str(tag).lower() for tag in a.tags)
+        )]
+        articles = sorted(articles, key=lambda a: (-a.views, -a.helpful_votes))
         serializer = self.get_serializer(articles, many=True)
         return Response({'results': serializer.data})
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        tags = self.request.query_params.get('tags')
+        if tags:
+            tag = tags.lower()
+            # SQLite-compatible: filter in Python
+            queryset = [a for a in queryset if tag in [str(t).lower() for t in a.tags]]
+        return queryset
 
     @action(detail=True, methods=['post'])
     def rate(self, request, kb_id=None):
